@@ -281,6 +281,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     tx,
                     adminProvider,
                     rewardProvider,
+                    habitProvider,
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.danger),
@@ -361,6 +362,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     TransactionModel tx,
     AdminProvider adminProvider,
     RewardProvider rewardProvider,
+    HabitProvider habitProvider,
   ) {
     final reasonCtrl = TextEditingController();
     final navigator = Navigator.of(context);
@@ -408,6 +410,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 transactionId: tx.id,
                 reason: reasonCtrl.text.isEmpty ? 'Tidak ada alasan' : reasonCtrl.text,
                 rewardProvider: rewardProvider,
+                habitProvider: habitProvider,
               );
               if (!mounted) return;
               navigator.pop();

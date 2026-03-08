@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/reward_provider.dart';
+import '../../../data/providers/user_profile_provider.dart';
 import '../widgets/reward_card.dart';
 
 class RewardScreen extends StatefulWidget {
@@ -16,28 +19,13 @@ class RewardScreen extends StatefulWidget {
   State<RewardScreen> createState() => _RewardScreenState();
 }
 
-class _RewardScreenState extends State<RewardScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  int _selectedCategory = 0;
-
-  static const _categories = [
-    {'key': 'semua', 'label': 'Semua Reward'},
-  ];
-
+class _RewardScreenState extends State<RewardScreen> {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _categories.length, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RewardProvider>().init();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
@@ -46,8 +34,7 @@ class _RewardScreenState extends State<RewardScreen>
       builder: (context, habitProvider, rewardProvider, _) {
         final coins = habitProvider.totalCoins;
         final trustScore = habitProvider.trustScore;
-        final selectedKey = _categories[_selectedCategory]['key']!;
-        final rewards = rewardProvider.filteredCatalog(selectedKey);
+        final rewards = rewardProvider.filteredCatalog('semua');
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -68,13 +55,13 @@ class _RewardScreenState extends State<RewardScreen>
                     : Builder(
                         builder: (ctx) {
                           final gridCols = ctx.gridColumns; // mobile: 1, tablet: 2, desktop: 3
-                          final spacing = ctx.padding(12);
+                          final spacing = ctx.padding(14);
                           return GridView.builder(
-                            padding: EdgeInsets.fromLTRB(16, 4, 16, 100),
+                            padding: EdgeInsets.fromLTRB(16, 12, 16, 120),
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: gridCols,
-                              childAspectRatio: 0.78,
+                              childAspectRatio: 0.82,
                               crossAxisSpacing: spacing,
                               mainAxisSpacing: spacing,
                             ),
@@ -96,12 +83,14 @@ class _RewardScreenState extends State<RewardScreen>
               ? FloatingActionButton.extended(
                   onPressed: () => _showHistory(context, rewardProvider),
                   backgroundColor: AppColors.primary,
-                  icon: const Icon(Icons.history, color: Colors.white),
+                  elevation: 8,
+                  icon: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
                   label: Text(
                     'Riwayat (${rewardProvider.totalTransactions})',
                     style: GoogleFonts.poppins(
-                        color: Colors.white, fontWeight: FontWeight.w600,
-                        fontSize: 13),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14),
                   ),
                 )
               : null,
@@ -117,40 +106,34 @@ class _RewardScreenState extends State<RewardScreen>
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 0,
-      title: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Center(child: Text('🛍️', style: TextStyle(fontSize: 18))),
-          ),
-          const SizedBox(width: 10),
-          Text('Toko Reward',
-              style: GoogleFonts.poppins(
-                  fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
-        ],
-      ),
+      title: Text('Toko Reward',
+          style: GoogleFonts.poppins(
+              fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
+      centerTitle: false,
       actions: [
-        Container(
-          margin: const EdgeInsets.only(right: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.monetization_on, color: Colors.amber, size: 16),
-              const SizedBox(width: 5),
-              Text('$coins',
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-            ],
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.monetization_on, color: Colors.amber, size: 18),
+                  const SizedBox(width: 7),
+                  Text('$coins',
+                      style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -160,43 +143,29 @@ class _RewardScreenState extends State<RewardScreen>
   // ── Category Filter ───────────────────────────────────────────────────────
 
   Widget _buildCategoryFilter() {
-    return Container(
-      height: 48,
-      margin: const EdgeInsets.fromLTRB(0, 8, 0, 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _categories.length,
-        itemBuilder: (ctx, i) {
-          final isSelected = _selectedCategory == i;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Text(
-                _categories[i]['label']!,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          Text('🎁 Semua Reward',
+              style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-          );
-        },
+            child: Text('Popular',
+                style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary)),
+          ),
+        ],
       ),
     );
   }
@@ -208,12 +177,20 @@ class _RewardScreenState extends State<RewardScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('🛒', style: TextStyle(fontSize: 56)),
-          const SizedBox(height: 16),
-          Text('Tidak ada reward di kategori ini',
+          const Text('🎁', style: TextStyle(fontSize: 64)),
+          const SizedBox(height: 20),
+          Text('Belum ada reward',
               style: GoogleFonts.poppins(
-                  fontSize: 15, fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary)),
+          const SizedBox(height: 8),
+          Text('Reward akan tersedia segera',
+              style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5),
+              textAlign: TextAlign.center),
         ],
       ),
     );
@@ -234,6 +211,15 @@ class _RewardScreenState extends State<RewardScreen>
       return;
     }
 
+    _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
+  }
+
+  void _showRedeemDialogContent(
+    BuildContext context,
+    RewardItem reward,
+    HabitProvider habitProvider,
+    RewardProvider rewardProvider,
+  ) {
     final canAfford = habitProvider.totalCoins >= reward.price;
     final isFrozen = habitProvider.trustScore < 40;
 
@@ -410,15 +396,13 @@ class _RewardScreenState extends State<RewardScreen>
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  final ctx = context; // capture State.context sebelum async gap
                   final ok = await authProvider.signInWithGoogle();
                   if (!mounted) return;
                   Navigator.pop(sheetCtx);
-                  if (!mounted) return; // guard sebelum pakai ctx
-                  if (ok) {
-                    // Login berhasil, lanjut ke dialog redeem
-                    _showRedeemDialog(ctx, reward, habitProvider, rewardProvider);
-                  } else if (authProvider.error != null) {
+                  if (ok && mounted) {
+                    // Login berhasil, langsung ke dialog redeem tanpa cek login lagi
+                    _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
+                  } else if (!ok && mounted && authProvider.error != null) {
                     _showSnack('Login gagal: ${authProvider.error}', AppColors.danger);
                   }
                 },
@@ -454,10 +438,16 @@ class _RewardScreenState extends State<RewardScreen>
     RewardProvider rewardProvider,
   ) async {
     final authProvider = context.read<AuthProvider>();
+    final profileProvider = context.read<UserProfileProvider>();
+
+    // Check if profile is complete
+    if (!profileProvider.isProfileComplete) {
+      _showSnack('❌ Lengkapi profil terlebih dahulu (Nama, Alamat, WhatsApp)', AppColors.danger);
+      return;
+    }
+
     final userId = authProvider.user?.uid ?? 'anonymous';
-    final userName = authProvider.displayName.isNotEmpty
-        ? authProvider.displayName
-        : 'User';
+    final userName = profileProvider.name.isNotEmpty ? profileProvider.name : 'User';
 
     final result = await rewardProvider.redeemReward(
       reward: reward,
@@ -479,12 +469,14 @@ class _RewardScreenState extends State<RewardScreen>
         },
       );
       FirebaseService.syncCoins(habitProvider.totalCoins);
+      // Kirim notif ke admin via WhatsApp otomatis
+      await _sendWhatsAppMessage(reward, profileProvider);
     }
 
     if (!mounted) return;
     switch (result) {
       case RedeemResult.success:
-        _showSuccessDialog(context, reward);
+        _showSuccessDialog(context, reward, profileProvider);
         break;
       case RedeemResult.insufficientCoins:
         _showSnack('Koin tidak cukup 😅', AppColors.warning);
@@ -501,7 +493,7 @@ class _RewardScreenState extends State<RewardScreen>
     }
   }
 
-  void _showSuccessDialog(BuildContext context, RewardItem reward) {
+  void _showSuccessDialog(BuildContext context, RewardItem reward, UserProfileProvider profileProvider) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -510,20 +502,20 @@ class _RewardScreenState extends State<RewardScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Text('⏳', style: const TextStyle(fontSize: 56)),
+            Text('✅', style: const TextStyle(fontSize: 56)),
             const SizedBox(height: 12),
-            Text('Menunggu Persetujuan Admin',
+            Text('Permintaan Diterima',
                 style: GoogleFonts.poppins(
                     fontSize: 20, fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 8),
             Text(
-              '${reward.emoji} ${reward.title}\n\nPermintaan tukar koinmu sudah dikirim ke admin. Silakan tunggu persetujuan admin untuk menyelesaikan transaksi.',
+              '${reward.emoji} ${reward.title}\n\nPermintaanmu sudah dikirim ke admin. Notifikasi WhatsApp sudah dikirimkan. Tunggu konfirmasi dari admin segera.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -535,15 +527,48 @@ class _RewardScreenState extends State<RewardScreen>
                       borderRadius: BorderRadius.circular(14)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: Text('Seru!',
+                child: Text('Kembali',
                     style: GoogleFonts.poppins(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
+                        fontSize: 14, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _sendWhatsAppMessage(RewardItem reward, UserProfileProvider profileProvider) async {
+    final adminPhoneNumber = AppStrings.adminWhatsappNumber;
+
+    final message = '''
+Halo Admin! 👋
+
+Saya ingin menukar poin di aplikasi BisaProduktif:
+
+📋 Data Penukar:
+Nama: ${profileProvider.name}
+Alamat: ${profileProvider.address}
+WhatsApp: ${profileProvider.whatsapp}
+
+🎁 Reward:
+${reward.emoji} ${reward.title}
+Harga: ${reward.price} koin
+
+Mohon diproses. Terima kasih! 🙏
+    ''';
+
+    final whatsappUrl = 'https://wa.me/$adminPhoneNumber?text=${Uri.encodeFull(message)}';
+
+    try {
+      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+        await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
+      } else {
+        _showSnack('WhatsApp tidak tersedia di device ini', AppColors.warning);
+      }
+    } catch (e) {
+      _showSnack('Gagal membuka WhatsApp: $e', AppColors.danger);
+    }
   }
 
   void _showSnack(String message, Color color) {

@@ -3,6 +3,9 @@ class AppStrings {
   static const String appName = 'bisaproduktif';
   static const String appTagline = 'Produktif itu bisa!';
 
+  // Admin Config - WhatsApp Redemption
+  static const String adminWhatsappNumber = '6282318982147'; // Format: 62 + nomor tanpa 0 di depan
+
   // Onboarding
   static const String onboardingWelcome = 'Selamat Datang!';
   static const String onboardingGenderTitle = 'Kamu siapa?';

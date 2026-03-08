@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import 'habit_provider.dart';
 
@@ -40,6 +41,9 @@ enum RedeemResult {
 class RewardProvider extends ChangeNotifier {
   static const String _boxName = 'transactions';
   static const int _dailyLimitCoins = 500; // limit saat trust 40-59
+  static const String _lastRedeemKey = 'last_redeem_timestamp';
+  static const int _cooldownMinutes = 5; // cooldown 5 menit antar redeem
+  static const int _maxPendingRedemptions = 3; // max 3 pending sekaligus
 
   late Box<TransactionModel> _box;
   List<TransactionModel> _transactions = [];
@@ -133,7 +137,7 @@ class RewardProvider extends ChangeNotifier {
     // Cek daily limit jika trust 40-59
     if (trustScore < 60) {
       if (reward.price > _dailyLimitCoins) return RedeemResult.dailyLimitExceeded;
-      final spentToday = _coinsSpentToday();
+      final spentToday = _coinsSpentToday(); // hanya approved
       if (spentToday + reward.price > _dailyLimitCoins) {
         return RedeemResult.dailyLimitExceeded;
       }
@@ -142,7 +146,38 @@ class RewardProvider extends ChangeNotifier {
     // Cek koin cukup
     if (totalCoins < reward.price) return RedeemResult.insufficientCoins;
 
-    // Simpan transaksi dengan status PENDING (waiting for admin approval)
+    // Anti-fraud: cek duplikat pending untuk reward yang sama
+    final hasDuplicate = pendingRedemptions.any((t) =>
+        t.rewardId == reward.id && t.userId == userId);
+    if (hasDuplicate) {
+      debugPrint('[Anti-Fraud] Duplicate pending redemption detected for reward ${reward.id}');
+      return RedeemResult.success; // Terima tapi jangan proses (silent fail)
+    }
+
+    // Anti-fraud: max 3 pending sekaligus
+    if (pendingRedemptions.length >= _maxPendingRedemptions) {
+      debugPrint('[Anti-Fraud] Max pending redemptions reached (${pendingRedemptions.length})');
+      return RedeemResult.success; // Silent fail
+    }
+
+    // Anti-fraud: cek cooldown 5 menit
+    final prefs = await SharedPreferences.getInstance();
+    final lastRedeemStr = prefs.getString(_lastRedeemKey);
+    if (lastRedeemStr != null) {
+      final lastRedeem = DateTime.tryParse(lastRedeemStr);
+      if (lastRedeem != null) {
+        final minutesSinceLastRedeem = DateTime.now().difference(lastRedeem).inMinutes;
+        if (minutesSinceLastRedeem < _cooldownMinutes) {
+          debugPrint('[Anti-Fraud] Redeem cooldown active. Last redeem: $minutesSinceLastRedeem minutes ago');
+          return RedeemResult.success; // Silent fail
+        }
+      }
+    }
+
+    // FREEZE COINS: deduct coins segera saat pending (akan direfund jika reject)
+    await habitProvider.deductCoins(reward.price);
+
+    // Simpan transaksi dengan status PENDING
     final tx = TransactionModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       userId: userId,
@@ -152,10 +187,14 @@ class RewardProvider extends ChangeNotifier {
       rewardEmoji: reward.emoji,
       coinsCost: reward.price,
       timestamp: DateTime.now(),
-      status: 'pending', // Status pending, menunggu approval admin
+      status: 'pending',
       category: reward.category,
     );
     await _box.put(tx.id, tx);
+
+    // Simpan last redeem timestamp
+    await prefs.setString(_lastRedeemKey, DateTime.now().toIso8601String());
+
     _loadTransactions();
     notifyListeners();
 
@@ -184,14 +223,18 @@ class RewardProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Admin reject redemption
+  /// Admin reject redemption + refund coins
   Future<bool> rejectPendingRedemption({
     required String transactionId,
     required String adminEmail,
     required String reason,
+    required HabitProvider habitProvider,
   }) async {
     final tx = _box.get(transactionId);
     if (tx == null || tx.status != 'pending') return false;
+
+    // REFUND: kembalikan koin ke user
+    await habitProvider.addCoins(tx.coinsCost);
 
     tx.status = 'rejected';
     tx.approvedBy = adminEmail;
@@ -217,6 +260,7 @@ class RewardProvider extends ChangeNotifier {
     final today = DateTime.now();
     return _transactions
         .where((t) =>
+            t.status == 'approved' && // Hanya hitung approved
             t.timestamp.year == today.year &&
             t.timestamp.month == today.month &&
             t.timestamp.day == today.day)

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_responsive.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../data/providers/notification_provider.dart';
 
@@ -44,12 +45,14 @@ class _NotificationSettingsScreenState
                   color: AppColors.textPrimary, size: 20),
               onPressed: () => Navigator.pop(context),
             ),
-            title: Text(
-              'Notifikasi',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+            title: Builder(
+              builder: (ctx) => Text(
+                'Notifikasi',
+                style: GoogleFonts.poppins(
+                  fontSize: ctx.fontSize(18),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
             actions: [

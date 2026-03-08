@@ -14,6 +14,7 @@ import 'data/providers/reward_provider.dart';
 import 'data/providers/auth_provider.dart';
 import 'data/providers/admin_provider.dart';
 import 'data/providers/notification_provider.dart';
+import 'data/providers/user_profile_provider.dart';
 import 'core/services/notification_service.dart';
 
 void main() async {
@@ -63,6 +64,7 @@ void main() async {
         }),
         ChangeNotifierProvider(create: (_) => AdminProvider()..init()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => UserProfileProvider()..init()),
       ],
       child: const BisaProduktifApp(),
     ),

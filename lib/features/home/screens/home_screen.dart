@@ -395,7 +395,7 @@ class _HomeScreenState extends State<HomeScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Today',
+                  'Hari ini',
                   style: GoogleFonts.poppins(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,

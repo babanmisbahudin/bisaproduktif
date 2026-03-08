@@ -6,6 +6,10 @@ import 'habit_provider.dart';
 
 class AdminProvider extends ChangeNotifier {
   static const String _adminEmailPref = 'admin_email';
+  static const String _loginAttemptsKey = 'admin_login_attempts';
+  static const String _lastLoginAttemptKey = 'admin_last_login_attempt';
+  static const int _maxLoginAttempts = 3;
+  static const int _lockoutMinutes = 60;
 
   // List admin email yang diizinkan
   static const List<String> allowedAdmins = [
@@ -15,9 +19,12 @@ class AdminProvider extends ChangeNotifier {
 
   String? _adminEmail;
   bool _isAdmin = false;
+  int _loginAttempts = 0;
+  DateTime? _lockedUntil;
 
   String? get adminEmail => _adminEmail;
   bool get isAdmin => _isAdmin;
+  bool get isLockedOut => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -32,14 +39,37 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set admin email (untuk testing/setup)
+  /// Set admin email (dengan rate limiting & security)
   Future<void> setAdminEmail(String email) async {
-    if (!allowedAdmins.contains(email)) {
-      throw Exception('Email tidak terdaftar sebagai admin');
+    // Cek lockout
+    if (isLockedOut) {
+      final minutesLeft = _lockedUntil!.difference(DateTime.now()).inMinutes + 1;
+      throw Exception('Akun terkunci. Coba lagi dalam $minutesLeft menit');
     }
+
+    // Normalisasi dan validasi email
+    final normalizedEmail = email.trim().toLowerCase();
+    if (!allowedAdmins.contains(normalizedEmail)) {
+      _loginAttempts++;
+      if (_loginAttempts >= _maxLoginAttempts) {
+        _lockedUntil = DateTime.now().add(Duration(minutes: _lockoutMinutes));
+        debugPrint('[Admin Security] Account locked after $_loginAttempts attempts');
+        notifyListeners();
+        throw Exception('Terlalu banyak percobaan gagal. Akun terkunci 1 jam');
+      }
+      throw Exception('Email tidak terdaftar sebagai admin. Percobaan: $_loginAttempts/$_maxLoginAttempts');
+    }
+
+    // Login berhasil - reset attempts
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_adminEmailPref, email);
-    _adminEmail = email;
+    await prefs.setString(_adminEmailPref, normalizedEmail);
+    _adminEmail = normalizedEmail;
+    _loginAttempts = 0;
+    _lockedUntil = null;
+
+    // Log login
+    debugPrint('[Admin Security] Admin login successful: $normalizedEmail at ${DateTime.now()}');
+
     _checkAdminStatus();
   }
 
@@ -74,6 +104,7 @@ class AdminProvider extends ChangeNotifier {
     required String transactionId,
     required String reason,
     required RewardProvider rewardProvider,
+    required HabitProvider habitProvider,
   }) async {
     if (!_isAdmin) return false;
 
@@ -81,6 +112,7 @@ class AdminProvider extends ChangeNotifier {
       transactionId: transactionId,
       adminEmail: _adminEmail!,
       reason: reason,
+      habitProvider: habitProvider,
     );
   }
 

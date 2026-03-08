@@ -24,6 +24,11 @@ class HabitProvider extends ChangeNotifier {
       _habits.where((h) => h.isCompletedOnDate).length;
   int get totalHabits => _habits.length;
 
+  /// Total coins earned hari ini (dari habit yang diselesaikan)
+  int get coinsEarnedToday {
+    return _habits.where((h) => h.isCompletedOnDate).fold(0, (sum, h) => sum + h.coins);
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
 
   Future<void> init() async {
@@ -137,14 +142,14 @@ class HabitProvider extends ChangeNotifier {
     final now = DateTime.now();
     final timestamp = now.toIso8601String();
 
-    // Anti-fraud level 1: cek durasi minimum (5 detik sejak app dibuka)
+    // Anti-fraud level 1: cek durasi minimum (30 detik sejak app dibuka)
     final prefs = await SharedPreferences.getInstance();
     final appOpenTime = prefs.getString('app_open_time') ?? timestamp;
     final appOpen = DateTime.tryParse(appOpenTime) ?? now;
     final secondsSinceOpen = now.difference(appOpen).inSeconds;
 
-    if (secondsSinceOpen < 3) {
-      _applyTrustPenalty(10, 'Penyelesaian terlalu cepat');
+    if (secondsSinceOpen < 30) {
+      _applyTrustPenalty(15, 'Penyelesaian terlalu cepat (< 30 detik sejak app dibuka)');
       return false;
     }
 
@@ -157,7 +162,14 @@ class HabitProvider extends ChangeNotifier {
         .toList();
 
     if (recentTimestamps.length >= 10) {
-      _applyTrustPenalty(5, 'Terlalu banyak habit per jam');
+      _applyTrustPenalty(5, 'Terlalu banyak habit per jam (max 10)');
+      return false;
+    }
+
+    // Anti-fraud level 2: max 20 habit per hari
+    final todayCompletions = _habits.where((h) => h.isCompletedOnDate).length;
+    if (todayCompletions >= 20) {
+      _applyTrustPenalty(8, 'Terlalu banyak habit per hari (max 20)');
       return false;
     }
 
@@ -211,6 +223,14 @@ class HabitProvider extends ChangeNotifier {
   Future<bool> deductCoins(int amount) async {
     if (_totalCoins < amount) return false;
     _totalCoins -= amount;
+    await _saveCoins();
+    notifyListeners();
+    return true;
+  }
+
+  // Dipanggil oleh RewardProvider saat reject redemption (refund)
+  Future<bool> addCoins(int amount) async {
+    _totalCoins += amount;
     await _saveCoins();
     notifyListeners();
     return true;

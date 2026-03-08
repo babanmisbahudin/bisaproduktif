@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../data/providers/reward_provider.dart';
 import '../../../core/constants/app_colors.dart';
 
-class RewardCard extends StatelessWidget {
+class RewardCard extends StatefulWidget {
   final RewardItem reward;
   final int userCoins;
   final VoidCallback onTap;
@@ -16,143 +16,180 @@ class RewardCard extends StatelessWidget {
   });
 
   @override
+  State<RewardCard> createState() => _RewardCardState();
+}
+
+class _RewardCardState extends State<RewardCard> with SingleTickerProviderStateMixin {
+  late AnimationController _hoverCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+  }
+
+  @override
+  void dispose() {
+    _hoverCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final canAfford = userCoins >= reward.price;
+    final canAfford = widget.userCoins >= widget.reward.price;
 
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          color: canAfford ? reward.color : reward.color.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: reward.color.withValues(alpha: canAfford ? 0.35 : 0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Emoji + kategori badge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(reward.emoji,
-                      style: TextStyle(
-                          fontSize: canAfford ? 32 : 28,
-                          color: canAfford ? null : Colors.white.withValues(alpha: 0.5))),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _categoryLabel(reward.category),
-                      style: GoogleFonts.poppins(
-                          fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
+      onTap: () {
+        _hoverCtrl.forward().then((_) => _hoverCtrl.reverse());
+        widget.onTap();
+      },
+      onTapDown: (_) => _hoverCtrl.forward(),
+      onTapUp: (_) => _hoverCtrl.reverse(),
+      onTapCancel: () => _hoverCtrl.reverse(),
+      child: AnimatedBuilder(
+        animation: _hoverCtrl,
+        builder: (ctx, _) {
+          final scale = 1.0 - (_hoverCtrl.value * 0.04);
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.reward.color.withValues(
+                        alpha: canAfford ? 0.4 : 0.15),
+                    blurRadius: 24,
+                    offset: Offset(0, 8 + (_hoverCtrl.value * 4)),
+                    spreadRadius: 0,
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              // Judul
-              Text(
-                reward.title,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: canAfford ? 1.0 : 0.55),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: canAfford
+                        ? [
+                            widget.reward.color,
+                            widget.reward.color.withValues(alpha: 0.85),
+                          ]
+                        : [
+                            widget.reward.color.withValues(alpha: 0.5),
+                            widget.reward.color.withValues(alpha: 0.35),
+                          ],
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              // Deskripsi
-              Text(
-                reward.description,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: Colors.white.withValues(alpha: canAfford ? 0.85 : 0.45),
-                  height: 1.3,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              // Harga + tombol
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.monetization_on, color: Colors.amber, size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${reward.price}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Emoji large
+                      Text(
+                        widget.reward.emoji,
+                        style: TextStyle(
+                          fontSize: canAfford ? 40 : 32,
+                          color: canAfford
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.6),
                         ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: canAfford
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      canAfford ? 'Tukar' : 'Kurang',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: canAfford ? reward.color : Colors.white.withValues(alpha: 0.6),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      // Judul
+                      Text(
+                        widget.reward.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withValues(
+                              alpha: canAfford ? 1.0 : 0.65),
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      // Deskripsi
+                      Text(
+                        widget.reward.description,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.white.withValues(
+                              alpha: canAfford ? 0.9 : 0.5),
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      // Bottom row: harga + badge
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // Harga
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(
+                                  alpha: canAfford ? 0.25 : 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.monetization_on,
+                                    color: Colors.amber, size: 14),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${widget.reward.price}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Status badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: canAfford
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              canAfford ? '✓ Tukar' : 'Kurang',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: canAfford
+                                    ? widget.reward.color
+                                    : Colors.white.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  String _categoryLabel(String category) {
-    switch (category) {
-      case 'voucher':
-        return '🎟️ Voucher';
-      case 'hiburan':
-        return '🎮 Hiburan';
-      case 'makanan':
-        return '🍴 Makanan';
-      case 'premium':
-        return '⭐ Premium';
-      default:
-        return category;
-    }
-  }
 }
 
 // ── Trust Score Banner ─────────────────────────────────────────────────────

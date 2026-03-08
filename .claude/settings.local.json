@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__list_directory",
+      "mcp__shell__run_command",
+      "mcp__filesystem__read_media_file",
+      "mcp__filesystem__directory_tree",
+      "Bash(dir \"C:\\\\Users\\\\Dell\\\\AndroidStudioProjects\\\\bisaproduktif\\\\assets\\\\images\"\")"
+    ]
+  }
+}

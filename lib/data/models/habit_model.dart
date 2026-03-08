@@ -13,6 +13,7 @@ class HabitModel {
   int order;
   // Untuk anti-fraud: simpan timestamp penyelesaian
   List<String> completionTimestamps; // max 30 hari terakhir
+  String? goalId; // null = habit manual, else = auto-generated dari goal
 
   HabitModel({
     required this.id,
@@ -25,6 +26,7 @@ class HabitModel {
     required this.createdAt,
     required this.order,
     List<String>? completionTimestamps,
+    this.goalId,
   }) : completionTimestamps = completionTimestamps ?? [];
 
   Color get color => Color(colorValue);
@@ -50,6 +52,7 @@ class HabitModel {
       'createdAt': createdAt.millisecondsSinceEpoch,
       'order': order,
       'completionTimestamps': completionTimestamps,
+      'goalId': goalId,
     };
   }
 
@@ -66,6 +69,7 @@ class HabitModel {
       order: map['order'] as int? ?? 0,
       completionTimestamps:
           (map['completionTimestamps'] as List?)?.cast<String>() ?? [],
+      goalId: map['goalId'] as String?,
     );
   }
 }
@@ -95,13 +99,14 @@ class HabitModelAdapter extends TypeAdapter<HabitModel> {
       order: fields[8] as int? ?? 0,
       completionTimestamps:
           (fields[9] as List?)?.cast<String>() ?? [],
+      goalId: fields[10] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, HabitModel obj) {
     writer
-      ..writeByte(10) // jumlah field
+      ..writeByte(11) // jumlah field
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -121,6 +126,8 @@ class HabitModelAdapter extends TypeAdapter<HabitModel> {
       ..writeByte(8)
       ..write(obj.order)
       ..writeByte(9)
-      ..write(obj.completionTimestamps);
+      ..write(obj.completionTimestamps)
+      ..writeByte(10)
+      ..write(obj.goalId);
   }
 }

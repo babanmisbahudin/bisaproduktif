@@ -49,6 +49,7 @@ class GoalProvider extends ChangeNotifier {
     required int coins,
     required Color color,
     DateTime? deadline,
+    dynamic habitProvider,
   }) async {
     final goal = GoalModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -62,6 +63,17 @@ class GoalProvider extends ChangeNotifier {
     );
     await _box.put(goal.id, goal);
     _goals.add(goal);
+
+    // Auto-generate daily habits dari goal (jika habitProvider tersedia)
+    if (habitProvider != null) {
+      await habitProvider.addHabitsFromGoal(
+        goal.id,
+        title,
+        targetDescription,
+        color,
+      );
+    }
+
     notifyListeners();
   }
 
@@ -85,7 +97,12 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteGoal(String id) async {
+  Future<void> deleteGoal(String id, {dynamic habitProvider}) async {
+    // Delete associated habits
+    if (habitProvider != null) {
+      await habitProvider.deleteHabitsForGoal(id);
+    }
+
     await _box.delete(id);
     _goals.removeWhere((g) => g.id == id);
     for (int i = 0; i < _goals.length; i++) {

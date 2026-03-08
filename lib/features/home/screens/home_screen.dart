@@ -15,7 +15,7 @@ import '../../habits/screens/add_habit_screen.dart';
 import '../../goals/screens/add_goal_screen.dart';
 import '../../goals/widgets/goals_tab.dart';
 import '../../rewards/screens/reward_screen.dart';
-import '../../notifications/screens/notification_settings_screen.dart';
+import '../../report/screens/report_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../../data/providers/notification_provider.dart';
 
@@ -52,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen>
     _loadUserData();
     context.read<HabitProvider>().recordAppOpen();
     _fetchWeather();
+    _checkShowTour();
   }
 
   Future<void> _loadUserData() async {
@@ -65,6 +66,125 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _fetchWeather() async {
     final w = await weather.WeatherService.fetch();
     if (mounted) setState(() => _weatherData = w);
+  }
+
+  Future<void> _checkShowTour() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('app_tour_shown') != true) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showTourSheet());
+      }
+    }
+  }
+
+  void _showTourSheet() {
+    int _currentStep = 0;
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: PageView(
+              onPageChanged: (i) => setModalState(() => _currentStep = i),
+              children: [
+                // Step 1
+                _tourStep(
+                  emoji: '🪙',
+                  title: 'Koin COS Kamu',
+                  desc:
+                      'Koin COS tampil di sini. Kumpulkan dengan menyelesaikan habit harian!',
+                ),
+                // Step 2
+                _tourStep(
+                  emoji: '☝️',
+                  title: 'Aktivitas Harian',
+                  desc:
+                      'Geser sheet ke atas untuk melihat dan mencentang habit-habit harianmu.',
+                ),
+                // Step 3
+                _tourStep(
+                  emoji: '🧭',
+                  title: 'Menu Navigasi',
+                  desc:
+                      'Gunakan menu bawah untuk akses Laporan, Rewards, dan Profil kamu.',
+                  isLast: true,
+                  onFinish: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('app_tour_shown', true);
+                    if (mounted) Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tourStep({
+    required String emoji,
+    required String title,
+    required String desc,
+    bool isLast = false,
+    VoidCallback? onFinish,
+  }) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 64)),
+        const SizedBox(height: 20),
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          desc,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+            height: 1.6,
+          ),
+        ),
+        const SizedBox(height: 40),
+        ElevatedButton(
+          onPressed: isLast
+              ? onFinish
+              : () {
+                  // PageView handles navigation
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Text(
+            isLast ? 'Mulai!' : 'Lanjut',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -572,51 +692,53 @@ class _HomeScreenState extends State<HomeScreen>
           ok ? _showCoin(habit.coins) : _showFraud();
         },
         onLongPress: () => _openEditHabit(habit),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color:
-                done ? habit.color.withValues(alpha: 0.45) : habit.color,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: habit.color
-                    .withValues(alpha: done ? 0.12 : 0.32),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                // Checkbox
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 28, height: 28,
-                  decoration: BoxDecoration(
-                    color: done ? Colors.white : Colors.transparent,
-                    border: Border.all(
-                        color: Colors.white, width: 2),
-                    borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color:
+                    done ? habit.color.withValues(alpha: 0.45) : habit.color,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: habit.color
+                        .withValues(alpha: done ? 0.12 : 0.32),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                  child: done
-                      ? Icon(Icons.check,
-                          color: habit.color, size: 17)
-                      : null,
-                ),
-                const SizedBox(width: 14),
-                // Title + streak
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        habit.title,
-                        style: GoogleFonts.poppins(
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 16),
+                child: Row(
+                  children: [
+                    // Checkbox
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        color: done ? Colors.white : Colors.transparent,
+                        border: Border.all(
+                            color: Colors.white, width: 2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: done
+                          ? Icon(Icons.check,
+                              color: habit.color, size: 17)
+                          : null,
+                    ),
+                    const SizedBox(width: 14),
+                    // Title + streak
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            habit.title,
+                            style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: Colors.white
@@ -665,6 +787,22 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           ),
+            ),
+            // Goal badge jika habit dari goal
+            if (habit.goalId != null)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('🎯', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -739,67 +877,63 @@ class _HomeScreenState extends State<HomeScreen>
 
   // ── Bottom nav ────────────────────────────────────────────────────────────
   Widget _buildNav() {
-    return Consumer<NotificationProvider>(
-      builder: (_, notif, _) => ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(36),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4))
-              ],
-            ),
-            child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _navItem(
-              icon: Icons.home_rounded,
-              isActive: true,
-              badge: 0,
-              onTap: () {},
-            ),
-            const SizedBox(width: 2),
-            _navItem(
-              icon: Icons.notifications_outlined,
-              isActive: false,
-              badge: notif.activeCount,
-              onTap: () => Navigator.push(
-                  context,
-                  AppTransition.slideRight(
-                      child:
-                          const NotificationSettingsScreen())),
-            ),
-            const SizedBox(width: 2),
-            _navItem(
-              icon: Icons.shopping_bag_outlined,
-              isActive: false,
-              badge: 0,
-              onTap: () => Navigator.push(context,
-                  AppTransition.slideRight(
-                      child: const RewardScreen())),
-            ),
-            const SizedBox(width: 2),
-            _navItem(
-              icon: Icons.person_outlined,
-              isActive: false,
-              badge: 0,
-              onTap: () => Navigator.push(context,
-                  AppTransition.slideRight(
-                      child: const ProfileScreen())),
-            ),
-          ],
-        ),
-            ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(36),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(36),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4))
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _navItem(
+                icon: Icons.home_rounded,
+                isActive: true,
+                badge: 0,
+                onTap: () {},
+              ),
+              const SizedBox(width: 2),
+              _navItem(
+                icon: Icons.bar_chart_rounded,
+                isActive: false,
+                badge: 0,
+                onTap: () => Navigator.push(
+                    context,
+                    AppTransition.slideRight(
+                        child: const ReportScreen())),
+              ),
+              const SizedBox(width: 2),
+              _navItem(
+                icon: Icons.shopping_bag_outlined,
+                isActive: false,
+                badge: 0,
+                onTap: () => Navigator.push(context,
+                    AppTransition.slideRight(
+                        child: const RewardScreen())),
+              ),
+              const SizedBox(width: 2),
+              _navItem(
+                icon: Icons.person_outlined,
+                isActive: false,
+                badge: 0,
+                onTap: () => Navigator.push(context,
+                    AppTransition.slideRight(
+                        child: const ProfileScreen())),
+              ),
+            ],
           ),
         ),
+      ),
     );
   }
 

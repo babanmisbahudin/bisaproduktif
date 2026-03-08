@@ -7,7 +7,9 @@ import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
+import '../../../data/providers/notification_provider.dart';
 import '../../admin/screens/admin_panel_screen.dart';
+import '../../notifications/screens/notification_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -52,6 +54,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Notification Settings ──────────────────────────────────────────────
+          Consumer<NotificationProvider>(
+            builder: (_, notifProvider, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                leading: const Icon(Icons.notifications_outlined, color: AppColors.primary),
+                title: Text(
+                  'Pengaturan Notifikasi',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                subtitle: Text(
+                  '${notifProvider.activeCount} notifikasi aktif',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationSettingsScreen(),
+                  ),
                 ),
               ),
             ),

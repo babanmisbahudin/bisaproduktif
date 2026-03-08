@@ -84,9 +84,11 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     if (_descController.text.trim().isEmpty) return;
     setState(() => _isLoading = true);
 
-    final provider = context.read<GoalProvider>();
+    final goalProvider = context.read<GoalProvider>();
+    final habitProvider = context.read<HabitProvider>();
+
     if (_isEditing) {
-      await provider.editGoal(
+      await goalProvider.editGoal(
         id: widget.editGoal!.id,
         title: _titleController.text.trim(),
         targetDescription: _descController.text.trim(),
@@ -95,12 +97,13 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         deadline: _selectedDeadline,
       );
     } else {
-      await provider.addGoal(
+      await goalProvider.addGoal(
         title: _titleController.text.trim(),
         targetDescription: _descController.text.trim(),
         coins: _calculatedCoins,
         color: _selectedColor,
         deadline: _selectedDeadline,
+        habitProvider: habitProvider,
       );
     }
 

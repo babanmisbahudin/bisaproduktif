@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/habit_model.dart';
-import '../../core/constants/app_colors.dart';
 
 class HabitProvider extends ChangeNotifier {
   static const String _boxName = 'habits';
@@ -59,10 +58,7 @@ class HabitProvider extends ChangeNotifier {
   void _loadHabits() {
     _habits = _box.values.toList()
       ..sort((a, b) => a.order.compareTo(b.order));
-    // Seed default habits jika kosong
-    if (_habits.isEmpty) {
-      _seedDefaultHabits();
-    }
+    // No auto-seed: user baru mulai dengan habit kosong, buat goal untuk auto-generate
   }
 
   // Reset isCompletedToday setiap hari baru
@@ -248,28 +244,98 @@ class HabitProvider extends ChangeNotifier {
     return '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
   }
 
-  void _seedDefaultHabits() {
-    final defaults = [
-      {'title': 'Rapikan kamar dan kamar mandi', 'coins': 30, 'color': AppColors.taskOrange},
-      {'title': 'Aktivitas fisik (olahraga, workout)', 'coins': 40, 'color': AppColors.taskYellow},
-      {'title': 'Jaga kebersihan dan penampilan', 'coins': 50, 'color': AppColors.taskGray},
-      {'title': 'Baca buku 20 menit', 'coins': 20, 'color': AppColors.taskOrangeLight},
-      {'title': 'Minum 8 gelas air putih', 'coins': 15, 'color': AppColors.primaryLight},
-    ];
+  // ── Auto-Habits from Goals ────────────────────────────────────────────────
 
-    for (int i = 0; i < defaults.length; i++) {
-      final d = defaults[i];
+  /// Generate daily habits otomatis dari goal
+  Future<void> addHabitsFromGoal(
+    String goalId,
+    String goalTitle,
+    String goalDesc,
+    Color goalColor,
+  ) async {
+    final combined = '$goalTitle $goalDesc'.toLowerCase();
+
+    final templates = <String>[];
+    if (combined.contains('nabung') ||
+        combined.contains('hemat') ||
+        combined.contains('keuangan') ||
+        combined.contains('investasi') ||
+        combined.contains('uang')) {
+      templates.addAll([
+        'Catat pengeluaran hari ini',
+        'Hindari pengeluaran impulsif',
+        'Sisihkan uang ke tabungan',
+      ]);
+    } else if (combined.contains('bisnis') ||
+        combined.contains('karir') ||
+        combined.contains('freelance') ||
+        combined.contains('startup') ||
+        combined.contains('proyek')) {
+      templates.addAll([
+        'Kerjakan 1 task bisnis',
+        'Kirim proposal / follow-up',
+        'Review progres project',
+      ]);
+    } else if (combined.contains('olahraga') ||
+        combined.contains('gym') ||
+        combined.contains('diet') ||
+        combined.contains('fitness') ||
+        combined.contains('lari')) {
+      templates.addAll([
+        'Olahraga 20 menit',
+        'Minum 8 gelas air',
+        'Tidur sebelum jam 23',
+      ]);
+    } else if (combined.contains('belajar') ||
+        combined.contains('skill') ||
+        combined.contains('kursus') ||
+        combined.contains('coding') ||
+        combined.contains('bahasa')) {
+      templates.addAll([
+        'Belajar 30 menit',
+        'Buat catatan materi',
+        'Review materi kemarin',
+      ]);
+    } else {
+      templates.addAll([
+        'Kerjakan 1 langkah kecil',
+        'Catat progres hari ini',
+        'Review tujuan utama',
+      ]);
+    }
+
+    for (int i = 0; i < templates.length; i++) {
       final habit = HabitModel(
-        id: 'default_$i',
-        title: d['title'] as String,
-        coins: d['coins'] as int,
-        colorValue: (d['color'] as Color).toARGB32(),
+        id: '${goalId}_${DateTime.now().millisecondsSinceEpoch}_$i',
+        title: templates[i],
+        coins: 25,
+        colorValue: goalColor.toARGB32(),
         createdAt: DateTime.now(),
-        order: i,
+        order: _habits.length + i,
+        goalId: goalId,
       );
-      _box.put(habit.id, habit);
+      await _box.put(habit.id, habit);
       _habits.add(habit);
     }
+
+    notifyListeners();
+  }
+
+  /// Delete all habits yang di-generate dari goal
+  Future<void> deleteHabitsForGoal(String goalId) async {
+    final habitsToDelete = _habits.where((h) => h.goalId == goalId).toList();
+    for (final h in habitsToDelete) {
+      await _box.delete(h.id);
+    }
+    _habits.removeWhere((h) => h.goalId == goalId);
+
+    // Re-order
+    for (int i = 0; i < _habits.length; i++) {
+      _habits[i].order = i;
+      await _box.put(_habits[i].id, _habits[i]);
+    }
+
+    notifyListeners();
   }
 
   // Simpan waktu app dibuka untuk anti-fraud

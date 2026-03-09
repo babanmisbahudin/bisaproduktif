@@ -7,10 +7,14 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/app_router.dart';
 import 'data/models/habit_model.dart';
 import 'data/models/goal_model.dart';
+import 'data/models/transaction_model.dart';
+import 'data/models/memo_model.dart';
+import 'data/models/focus_session_model.dart';
 import 'data/providers/habit_provider.dart';
 import 'data/providers/goal_provider.dart';
-import 'data/models/transaction_model.dart';
 import 'data/providers/reward_provider.dart';
+import 'data/providers/memo_provider.dart';
+import 'data/providers/focus_timer_provider.dart';
 import 'data/providers/auth_provider.dart';
 import 'data/providers/admin_provider.dart';
 import 'data/providers/notification_provider.dart';
@@ -41,6 +45,8 @@ void main() async {
   Hive.registerAdapter(HabitModelAdapter());
   Hive.registerAdapter(GoalModelAdapter());
   Hive.registerAdapter(TransactionModelAdapter());
+  Hive.registerAdapter(MemoModelAdapter());
+  Hive.registerAdapter(FocusSessionModelAdapter());
 
   // Init Firebase (graceful fallback jika google-services.json belum dikonfigurasi)
   bool firebaseReady = false;
@@ -67,6 +73,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AdminProvider()..init()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => UserProfileProvider()..init()),
+        ChangeNotifierProvider(create: (_) => MemoProvider()..init()),
+        ChangeNotifierProvider(create: (_) => FocusTimerProvider()..init()),
       ],
       child: const BisaProduktifApp(),
     ),

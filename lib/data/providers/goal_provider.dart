@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/goal_model.dart';
-import '../../core/constants/app_colors.dart';
 
 class GoalProvider extends ChangeNotifier {
   static const String _boxName = 'goals';
@@ -36,9 +35,7 @@ class GoalProvider extends ChangeNotifier {
   void _loadGoals() {
     _goals = _box.values.toList()
       ..sort((a, b) => a.order.compareTo(b.order));
-    if (_goals.isEmpty) {
-      _seedDefaultGoals();
-    }
+    // Removed: new users start with empty goals
   }
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
@@ -167,43 +164,4 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Default Goals ─────────────────────────────────────────────────────────
-
-  void _seedDefaultGoals() {
-    final defaults = [
-      {
-        'title': 'Baca 5 buku dalam sebulan',
-        'desc': 'Baca setidaknya 5 buku non-fiksi dalam 30 hari',
-        'coins': 500,
-        'color': AppColors.primary,
-      },
-      {
-        'title': 'Olahraga rutin 30 hari',
-        'desc': 'Lakukan aktivitas fisik minimal 20 menit setiap hari',
-        'coins': 750,
-        'color': AppColors.taskOrange,
-      },
-      {
-        'title': 'Hemat 500rb bulan ini',
-        'desc': 'Kurangi pengeluaran tidak perlu dan tabung 500.000 rupiah',
-        'coins': 1000,
-        'color': AppColors.taskYellow,
-      },
-    ];
-
-    for (int i = 0; i < defaults.length; i++) {
-      final d = defaults[i];
-      final goal = GoalModel(
-        id: 'goal_default_$i',
-        title: d['title'] as String,
-        targetDescription: d['desc'] as String,
-        coins: d['coins'] as int,
-        colorValue: (d['color'] as Color).toARGB32(),
-        createdAt: DateTime.now(),
-        order: i,
-      );
-      _box.put(goal.id, goal);
-      _goals.add(goal);
-    }
-  }
 }

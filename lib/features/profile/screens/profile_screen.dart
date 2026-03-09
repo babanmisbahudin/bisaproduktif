@@ -8,6 +8,7 @@ import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
 import '../../../data/providers/notification_provider.dart';
+import '../../../data/providers/theme_provider.dart';
 import '../../admin/screens/admin_panel_screen.dart';
 import '../../notifications/screens/notification_settings_screen.dart';
 
@@ -89,6 +90,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   MaterialPageRoute(
                     builder: (_) => const NotificationSettingsScreen(),
                   ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Theme Settings ─────────────────────────────────────────────────
+          Consumer<ThemeProvider>(
+            builder: (_, themeProvider, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                leading: Icon(
+                  themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  'Mode Gelap/Terang',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                subtitle: Text(
+                  themeProvider.isDarkMode ? 'Mode Gelap' : 'Mode Terang',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                trailing: Switch(
+                  value: themeProvider.isDarkMode,
+                  onChanged: (_) => themeProvider.toggleTheme(),
+                  activeThumbColor: AppColors.primary,
+                  activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
                 ),
               ),
             ),

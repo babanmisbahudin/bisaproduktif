@@ -26,8 +26,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _userName = '';
   int _selectedTab = 0;
   weather.WeatherData? _weatherData;
@@ -43,8 +42,9 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _handlePulseAnim = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: _handlePulseCtrl, curve: Curves.easeInOut));
+    _handlePulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _handlePulseCtrl, curve: Curves.easeInOut),
+    );
 
     // Loop pulse setiap 3 detik (hint subtle)
     _handlePulseCtrl.repeat(reverse: true);
@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showTourSheet() {
-    int _currentStep = 0;
+    final pageCtrl = PageController();
     showModalBottomSheet(
       context: context,
       isDismissible: false,
@@ -94,33 +94,100 @@ class _HomeScreenState extends State<HomeScreen>
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: PageView(
-              onPageChanged: (i) => setModalState(() => _currentStep = i),
+              controller: pageCtrl,
+              onPageChanged: (i) => setModalState(() {}),
               children: [
-                // Step 1
+                // Step 1: Welcome
+                _tourStep(
+                  emoji: '👋',
+                  title: 'Selamat Datang!',
+                  desc:
+                      'BisaProduktif adalah aplikasi untuk membantu kamu mencapai goals dengan cara yang fun dan terstruktur. Mari pelajari fitur-fiturnya!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+                // Step 2: Koin COS
                 _tourStep(
                   emoji: '🪙',
-                  title: 'Koin COS Kamu',
+                  title: 'Koin COS',
                   desc:
-                      'Koin COS tampil di sini. Kumpulkan dengan menyelesaikan habit harian!',
+                      'Koin COS adalah mata uang digital di app ini. Kumpulkan koin dengan menyelesaikan habit harian dan goals. Gunakan koin untuk tukar reward di shop!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
                 ),
-                // Step 2
+                // Step 3: Habit Harian
                 _tourStep(
-                  emoji: '☝️',
-                  title: 'Aktivitas Harian',
+                  emoji: '✅',
+                  title: 'Habit Harian',
                   desc:
-                      'Geser sheet ke atas untuk melihat dan mencentang habit-habit harianmu.',
+                      'Geser sheet ke atas untuk lihat daftar habit harianmu. Centang setiap habit yang selesai untuk dapat koin + streak counter naik. Semakin konsisten, semakin banyak koin!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
                 ),
-                // Step 3
+                // Step 4: Goals
                 _tourStep(
-                  emoji: '🧭',
-                  title: 'Menu Navigasi',
+                  emoji: '🎯',
+                  title: 'Goals (Target Besar)',
                   desc:
-                      'Gunakan menu bawah untuk akses Laporan, Rewards, dan Profil kamu.',
+                      'Di tab Goals, buat target jangka panjang (misal: "Baca 5 buku bulan ini"). Habits akan otomatis dibuat berdasarkan goal-mu. Ketika goal selesai, dapat reward koin besar!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+                // Step 5: Laporan
+                _tourStep(
+                  emoji: '📊',
+                  title: 'Laporan Aktivitas',
+                  desc:
+                      'Tab Laporan menampilkan chart 7 hari, ringkasan mingguan, progress goals, dan aktivitas koin. Gunakan untuk track progress dan motivasi diri!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+                // Step 6: Rewards
+                _tourStep(
+                  emoji: '🛍️',
+                  title: 'Rewards & Shop',
+                  desc:
+                      'Tukar koin COS dengan rewards menarik: voucher makanan, tiket nonton, premium features, dan lainnya. Semakin banyak goal selesai, semakin banyak reward!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+                // Step 7: Trust Score
+                _tourStep(
+                  emoji: '⭐',
+                  title: 'Trust Score',
+                  desc:
+                      'Trust score dimulai dari 70. Jika kamu konsisten & jujur, score naik. Tapi jika ada aktivitas mencurigakan (misal: nge-cheat), score bisa turun. Score rendah bisa freeze akun!',
+                  onNext: () => pageCtrl.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                ),
+                // Step 8: Profile & Settings
+                _tourStep(
+                  emoji: '👤',
+                  title: 'Profil & Pengaturan',
+                  desc:
+                      'Di tab Profil, atur notifikasi reminder, pilih light/dark mode, login Google untuk sync data, dan lihat status admin access. Semua data disimpan aman!',
                   isLast: true,
-                  onFinish: () async {
+                  onNext: () async {
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.setBool('app_tour_shown', true);
-                    if (mounted) Navigator.pop(context);
+                    if (mounted) {
+                      Navigator.pop(context);
+                      pageCtrl.dispose();
+                    }
                   },
                 ),
               ],
@@ -136,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen>
     required String title,
     required String desc,
     bool isLast = false,
-    VoidCallback? onFinish,
+    VoidCallback? onNext,
   }) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -163,11 +230,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         const SizedBox(height: 40),
         ElevatedButton(
-          onPressed: isLast
-              ? onFinish
-              : () {
-                  // PageView handles navigation
-                },
+          onPressed: onNext,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
@@ -218,12 +281,16 @@ class _HomeScreenState extends State<HomeScreen>
             children: [
               // ── 1. Full-screen dynamic scene ─────────────────────────────
               Positioned.fill(
-                child: DynamicSceneWidget(weather: _weatherData?.type ?? WeatherType.clear),
+                child: DynamicSceneWidget(
+                  weather: _weatherData?.type ?? WeatherType.clear,
+                ),
               ),
 
               // ── 2. Header (name + progress) ──────────────────────────────
               Positioned(
-                top: 0, left: 0, right: 0,
+                top: 0,
+                left: 0,
+                right: 0,
                 child: SafeArea(
                   bottom: false,
                   child: _buildHeader(habitProvider),
@@ -233,23 +300,26 @@ class _HomeScreenState extends State<HomeScreen>
               // ── 3. Coin counter in the sky ───────────────────────────────
               Positioned(
                 top: topPad + mq.size.height * 0.32,
-                left: 0, right: 0,
+                left: 0,
+                right: 0,
                 child: _buildCoinDisplay(habitProvider.totalCoins),
               ),
 
               // ── 5. Draggable bottom sheet ────────────────────────────────
               DraggableScrollableSheet(
                 initialChildSize: 0.50,
-                minChildSize: 0.18,
+                minChildSize: 0.28,
                 maxChildSize: 0.78,
                 snap: true,
-                snapSizes: const [0.18, 0.50, 0.78],
+                snapSizes: const [0.28, 0.50, 0.78],
                 builder: (ctx, sc) => _buildSheet(habitProvider, sc),
               ),
 
               // ── 6. Floating bottom nav (on top) ──────────────────────────
               Positioned(
-                bottom: 12, left: 0, right: 0,
+                bottom: 10,
+                left: 0,
+                right: 0,
                 child: Center(child: _buildNav()),
               ),
             ],
@@ -287,8 +357,11 @@ class _HomeScreenState extends State<HomeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.monetization_on,
-                    color: Color(0xFFFFD54F), size: 17),
+                const Icon(
+                  Icons.monetization_on,
+                  color: Color(0xFFFFD54F),
+                  size: 17,
+                ),
                 const SizedBox(width: 5),
                 Text(
                   'COS coins collected',
@@ -318,10 +391,10 @@ class _HomeScreenState extends State<HomeScreen>
     final type = weatherData?.type ?? WeatherType.clear;
 
     final icon = switch (type) {
-      WeatherType.rainy   => '🌧️',
-      WeatherType.hot     => '☀️',
-      WeatherType.cloudy  => '⛅',
-      WeatherType.clear   => '🌤️',
+      WeatherType.rainy => '🌧️',
+      WeatherType.hot => '☀️',
+      WeatherType.cloudy => '⛅',
+      WeatherType.clear => '🌤️',
     };
 
     final tempDisplay = weatherData?.tempC != null && weatherData!.tempC > 0
@@ -379,22 +452,31 @@ class _HomeScreenState extends State<HomeScreen>
                     child: Row(
                       children: [
                         Container(
-                          width: 40, height: 40,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(14),
                             border: authProv.isLoggedIn
                                 ? Border.all(
-                                    color: Colors.greenAccent.withValues(alpha: 0.7),
-                                    width: 1.5)
+                                    color: Colors.greenAccent.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    width: 1.5,
+                                  )
                                 : null,
                           ),
                           child: Center(
                             child: authProv.isLoggedIn
-                                ? const Icon(Icons.check_circle,
-                                    color: Colors.greenAccent, size: 20)
-                                : const Text('👋',
-                                    style: TextStyle(fontSize: 18)),
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.greenAccent,
+                                    size: 20,
+                                  )
+                                : const Text(
+                                    '👋',
+                                    style: TextStyle(fontSize: 18),
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -426,12 +508,15 @@ class _HomeScreenState extends State<HomeScreen>
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.28),
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.30)),
+                        color: Colors.white.withValues(alpha: 0.30),
+                      ),
                     ),
                     child: Text(
                       '${provider.completedToday} / ${provider.totalHabits}',
@@ -459,9 +544,10 @@ class _HomeScreenState extends State<HomeScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 28,
-              offset: Offset(0, -4))
+            color: Color(0x22000000),
+            blurRadius: 28,
+            offset: Offset(0, -4),
+          ),
         ],
       ),
       child: Column(
@@ -489,14 +575,12 @@ class _HomeScreenState extends State<HomeScreen>
                       final opacity = 0.65 + (_handlePulseAnim.value * 0.2);
                       return Transform.scale(
                         scale: scale,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: child,
-                        ),
+                        child: Opacity(opacity: opacity, child: child),
                       );
                     },
                     child: Container(
-                      width: 48, height: 5,
+                      width: 48,
+                      height: 5,
                       decoration: BoxDecoration(
                         color: Colors.grey[350],
                         borderRadius: BorderRadius.circular(2.5),
@@ -523,10 +607,10 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
                 GestureDetector(
-                  onTap:
-                      _selectedTab == 0 ? _openAddHabit : _openAddGoal,
+                  onTap: _selectedTab == 0 ? _openAddHabit : _openAddGoal,
                   child: Container(
-                    width: 46, height: 46,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(15),
@@ -535,11 +619,14 @@ class _HomeScreenState extends State<HomeScreen>
                           color: AppColors.primary.withValues(alpha: 0.38),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
-                        )
+                        ),
                       ],
                     ),
-                    child: const Icon(Icons.add_rounded,
-                        color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
               ],
@@ -556,14 +643,12 @@ class _HomeScreenState extends State<HomeScreen>
           Expanded(
             child: _selectedTab == 0
                 ? (provider.isLoaded
-                    ? ListView(
-                        controller: sc,
-                        padding:
-                            const EdgeInsets.fromLTRB(22, 12, 22, 90),
-                        children: _buildHabitCards(provider),
-                      )
-                    : const Center(
-                        child: CircularProgressIndicator()))
+                      ? ListView(
+                          controller: sc,
+                          padding: const EdgeInsets.fromLTRB(22, 12, 22, 90),
+                          children: _buildHabitCards(provider),
+                        )
+                      : const Center(child: CircularProgressIndicator()))
                 : GoalsTab(
                     onCoinEarned: () => setState(() {}),
                     scrollController: sc,
@@ -592,11 +677,9 @@ class _HomeScreenState extends State<HomeScreen>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color:
-              isSelected ? AppColors.primary : Colors.transparent,
+          color: isSelected ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(30),
           boxShadow: isSelected
               ? [
@@ -604,7 +687,7 @@ class _HomeScreenState extends State<HomeScreen>
                     color: AppColors.primary.withValues(alpha: 0.28),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -623,9 +706,7 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Habit cards ───────────────────────────────────────────────────────────
   List<Widget> _buildHabitCards(HabitProvider provider) {
     if (provider.habits.isEmpty) return [_emptyState()];
-    return provider.habits
-        .map((h) => _habitCard(h, provider))
-        .toList();
+    return provider.habits.map((h) => _habitCard(h, provider)).toList();
   }
 
   Widget _emptyState() {
@@ -635,15 +716,22 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           const Text('🌱', style: TextStyle(fontSize: 52)),
           const SizedBox(height: 14),
-          Text('Belum ada habit',
-              style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary)),
+          Text(
+            'Belum ada habit',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text('Tap + untuk tambah habit pertamamu',
-              style: GoogleFonts.poppins(
-                  fontSize: 13, color: AppColors.textSecondary)),
+          Text(
+            'Tap + untuk tambah habit pertamamu',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -672,9 +760,11 @@ class _HomeScreenState extends State<HomeScreen>
           if (mounted) ok ? _showCoin(habit.coins) : _showFraud();
           return false;
         }
-        return await _confirmDelete(context,
-            title: 'Hapus Habit?',
-            content: '"${habit.title}" akan dihapus permanen.') ??
+        return await _confirmDelete(
+              context,
+              title: 'Hapus Habit?',
+              content: '"${habit.title}" akan dihapus permanen.',
+            ) ??
             false;
       },
       onDismissed: (dir) {
@@ -698,13 +788,11 @@ class _HomeScreenState extends State<HomeScreen>
               duration: const Duration(milliseconds: 300),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color:
-                    done ? habit.color.withValues(alpha: 0.45) : habit.color,
+                color: done ? habit.color.withValues(alpha: 0.45) : habit.color,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: habit.color
-                        .withValues(alpha: done ? 0.12 : 0.32),
+                    color: habit.color.withValues(alpha: done ? 0.12 : 0.32),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -712,22 +800,23 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 16),
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 child: Row(
                   children: [
                     // Checkbox
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 28, height: 28,
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
                         color: done ? Colors.white : Colors.transparent,
-                        border: Border.all(
-                            color: Colors.white, width: 2),
+                        border: Border.all(color: Colors.white, width: 2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: done
-                          ? Icon(Icons.check,
-                              color: habit.color, size: 17)
+                          ? Icon(Icons.check, color: habit.color, size: 17)
                           : null,
                     ),
                     const SizedBox(width: 14),
@@ -739,54 +828,61 @@ class _HomeScreenState extends State<HomeScreen>
                           Text(
                             habit.title,
                             style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white
-                              .withValues(alpha: done ? 0.6 : 1.0),
-                          decoration: done
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
-                      if (habit.streak > 0)
-                        Text(
-                          '🔥 ${habit.streak} hari berturut',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color:
-                                Colors.white.withValues(alpha: 0.85),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(
+                                alpha: done ? 0.6 : 1.0,
+                              ),
+                              decoration: done
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // Coin badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    children: [
-                      Text('${habit.coins}',
-                          style: GoogleFonts.poppins(
+                          if (habit.streak > 0)
+                            Text(
+                              '🔥 ${habit.streak} hari berturut',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Coin badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${habit.coins}',
+                            style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                      Text('Coins',
-                          style: GoogleFonts.poppins(
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'Coins',
+                            style: GoogleFonts.poppins(
                               fontSize: 9,
-                              color:
-                                  Colors.white.withValues(alpha: 0.85))),
-                    ],
-                  ),
+                              color: Colors.white.withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
             ),
             // Goal badge jika habit dari goal
             if (habit.goalId != null)
@@ -816,8 +912,10 @@ class _HomeScreenState extends State<HomeScreen>
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration:
-          BoxDecoration(color: color, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(18),
+      ),
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -825,51 +923,76 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           Icon(icon, color: Colors.white, size: 26),
           const SizedBox(height: 4),
-          Text(label,
-              style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Future<bool?> _confirmDelete(BuildContext context,
-      {required String title, required String content}) {
+  Future<bool?> _confirmDelete(
+    BuildContext context, {
+    required String title,
+    required String content,
+  }) {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: Row(children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: AppColors.danger, size: 22),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(title,
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700, fontSize: 17))),
-        ]),
-        content: Text(content,
-            style: GoogleFonts.poppins(
-                fontSize: 13, color: AppColors.textSecondary)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.danger,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          content,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Batal',
-                  style: GoogleFonts.poppins(
-                      color: AppColors.textSecondary))),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
           ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.danger,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-              child: Text('Hapus',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600))),
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Hapus',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -888,9 +1011,10 @@ class _HomeScreenState extends State<HomeScreen>
             borderRadius: BorderRadius.circular(36),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4))
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: Row(
@@ -908,27 +1032,29 @@ class _HomeScreenState extends State<HomeScreen>
                 isActive: false,
                 badge: 0,
                 onTap: () => Navigator.push(
-                    context,
-                    AppTransition.slideRight(
-                        child: const ReportScreen())),
+                  context,
+                  AppTransition.slideRight(child: const ReportScreen()),
+                ),
               ),
               const SizedBox(width: 2),
               _navItem(
                 icon: Icons.shopping_bag_outlined,
                 isActive: false,
                 badge: 0,
-                onTap: () => Navigator.push(context,
-                    AppTransition.slideRight(
-                        child: const RewardScreen())),
+                onTap: () => Navigator.push(
+                  context,
+                  AppTransition.slideRight(child: const RewardScreen()),
+                ),
               ),
               const SizedBox(width: 2),
               _navItem(
                 icon: Icons.person_outlined,
                 isActive: false,
                 badge: 0,
-                onTap: () => Navigator.push(context,
-                    AppTransition.slideRight(
-                        child: const ProfileScreen())),
+                onTap: () => Navigator.push(
+                  context,
+                  AppTransition.slideRight(child: const ProfileScreen()),
+                ),
               ),
             ],
           ),
@@ -950,33 +1076,37 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 18, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
-              color: isActive
-                  ? AppColors.primary
-                  : Colors.transparent,
+              color: isActive ? AppColors.primary : Colors.transparent,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(icon,
-                color: isActive
-                    ? Colors.white
-                    : AppColors.navInactive,
-                size: 24),
+            child: Icon(
+              icon,
+              color: isActive ? Colors.white : AppColors.navInactive,
+              size: 24,
+            ),
           ),
           if (badge > 0)
             Positioned(
-              top: 2, right: 6,
+              top: 2,
+              right: 6,
               child: Container(
-                width: 17, height: 17,
+                width: 17,
+                height: 17,
                 decoration: const BoxDecoration(
-                    color: Colors.red, shape: BoxShape.circle),
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
                 child: Center(
-                  child: Text('$badge',
-                      style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700)),
+                  child: Text(
+                    '$badge',
+                    style: GoogleFonts.poppins(
+                      fontSize: 9,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -990,38 +1120,48 @@ class _HomeScreenState extends State<HomeScreen>
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(28))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2)),
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             if (authProv.isLoggedIn) ...[
               CircleAvatar(
                 radius: 32,
-                backgroundColor:
-                    AppColors.primary.withValues(alpha: 0.15),
-                child: const Icon(Icons.person,
-                    size: 36, color: AppColors.primary),
+                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                child: const Icon(
+                  Icons.person,
+                  size: 36,
+                  color: AppColors.primary,
+                ),
               ),
               const SizedBox(height: 12),
-              Text(authProv.displayName,
-                  style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
-              Text(authProv.email,
-                  style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: AppColors.textSecondary)),
+              Text(
+                authProv.displayName,
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                authProv.email,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -1031,36 +1171,42 @@ class _HomeScreenState extends State<HomeScreen>
                     if (mounted) Navigator.pop(context);
                   },
                   icon: const Icon(Icons.logout, size: 18),
-                  label: Text('Keluar',
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600)),
+                  label: Text(
+                    'Keluar',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
                   style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     foregroundColor: AppColors.danger,
                     side: BorderSide(
-                        color: AppColors.danger.withValues(alpha: 0.4)),
+                      color: AppColors.danger.withValues(alpha: 0.4),
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
             ] else ...[
               const Text('🔑', style: TextStyle(fontSize: 52)),
               const SizedBox(height: 12),
-              Text('Login dengan Google',
-                  style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary)),
+              Text(
+                'Login dengan Google',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 'Diperlukan untuk tukar koin & sync ke cloud.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.5),
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 24),
               if (authProv.isLoading)
@@ -1070,31 +1216,30 @@ class _HomeScreenState extends State<HomeScreen>
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      final ok =
-                          await authProv.signInWithGoogle();
+                      final ok = await authProv.signInWithGoogle();
                       if (!mounted) return;
                       if (ok) {
                         Navigator.pop(context);
-                        _snack('Login berhasil! 🎉',
-                            color: AppColors.primary);
+                        _snack('Login berhasil! 🎉', color: AppColors.primary);
                       } else if (authProv.error != null) {
-                        _snack(authProv.error!,
-                            color: AppColors.danger);
+                        _snack(authProv.error!, color: AppColors.danger);
                       }
                     },
                     icon: const Icon(Icons.login, size: 20),
-                    label: Text('Login dengan Google',
-                        style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15)),
+                    label: Text(
+                      'Login dengan Google',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(14)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
@@ -1112,16 +1257,22 @@ class _HomeScreenState extends State<HomeScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: Row(children: [
-          const Icon(Icons.cloud, color: AppColors.primary, size: 24),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text('OpenWeatherMap API',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700, fontSize: 17))),
-        ]),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.cloud, color: AppColors.primary, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'OpenWeatherMap API',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1130,9 +1281,10 @@ class _HomeScreenState extends State<HomeScreen>
               Text(
                 'Masukkan API key OpenWeatherMap untuk cuaca lebih akurat dengan suhu real-time.',
                 style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.5),
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -1141,11 +1293,16 @@ class _HomeScreenState extends State<HomeScreen>
                 decoration: InputDecoration(
                   hintText: 'Paste API key...',
                   hintStyle: GoogleFonts.poppins(
-                      fontSize: 13, color: Colors.grey[400]),
+                    fontSize: 13,
+                    color: Colors.grey[400],
+                  ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
                 style: GoogleFonts.poppins(fontSize: 13),
               ),
@@ -1156,10 +1313,15 @@ class _HomeScreenState extends State<HomeScreen>
                     context: context,
                     builder: (_) => AlertDialog(
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      title: Text('Cara Dapat API Key',
-                          style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w700, fontSize: 15)),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: Text(
+                        'Cara Dapat API Key',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
                       content: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -1183,25 +1345,33 @@ class _HomeScreenState extends State<HomeScreen>
                             Text(
                               '4. Copy key yang pertama',
                               style: GoogleFonts.poppins(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       actions: [
                         TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text('Paham',
-                                style: GoogleFonts.poppins(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600))),
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Paham',
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   );
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -1209,9 +1379,10 @@ class _HomeScreenState extends State<HomeScreen>
                   child: Text(
                     '? Cara dapat API key gratis',
                     style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600),
+                      fontSize: 11,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -1220,31 +1391,41 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Batal',
-                  style: GoogleFonts.poppins(
-                      color: AppColors.textSecondary))),
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
           ElevatedButton(
-              onPressed: () async {
-                final key = keyCtrl.text.trim();
-                if (key.isEmpty) {
-                  _snack('API key tidak boleh kosong', color: AppColors.danger);
-                  return;
-                }
-                await weather.WeatherService.setApiKey(key);
-                if (mounted) {
-                  Navigator.pop(context);
-                  _snack('API key tersimpan! Refresh cuaca...', color: AppColors.primary);
-                  await _fetchWeather();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-              child: Text('Simpan',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600))),
+            onPressed: () async {
+              final key = keyCtrl.text.trim();
+              if (key.isEmpty) {
+                _snack('API key tidak boleh kosong', color: AppColors.danger);
+                return;
+              }
+              await weather.WeatherService.setApiKey(key);
+              if (mounted) {
+                Navigator.pop(context);
+                _snack(
+                  'API key tersimpan! Refresh cuaca...',
+                  color: AppColors.primary,
+                );
+                await _fetchWeather();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Simpan',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -1261,8 +1442,7 @@ class _HomeScreenState extends State<HomeScreen>
         minChildSize: 0.5,
         maxChildSize: 0.95,
         builder: (_, sc) => ClipRRect(
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: const AddHabitScreen(),
         ),
       ),
@@ -1279,8 +1459,7 @@ class _HomeScreenState extends State<HomeScreen>
         minChildSize: 0.5,
         maxChildSize: 0.95,
         builder: (_, sc) => ClipRRect(
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: AddHabitScreen(editHabit: habit),
         ),
       ),
@@ -1289,8 +1468,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _openAddGoal() {
     Navigator.push(
-        context,
-        AppTransition.slideRight(child: const AddGoalScreen()));
+      context,
+      AppTransition.slideRight(child: const AddGoalScreen()),
+    );
   }
 
   // ── Snackbars ─────────────────────────────────────────────────────────────
@@ -1299,19 +1479,21 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showFraud() {
-    _snack('Aktivitas tidak biasa terdeteksi ⚠️',
-        color: AppColors.warning);
+    _snack('Aktivitas tidak biasa terdeteksi ⚠️', color: AppColors.warning);
   }
 
   void _snack(String msg, {Color? color}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12)),
-      duration: const Duration(seconds: 2),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 }

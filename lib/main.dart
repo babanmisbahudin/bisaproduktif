@@ -15,6 +15,7 @@ import 'data/providers/auth_provider.dart';
 import 'data/providers/admin_provider.dart';
 import 'data/providers/notification_provider.dart';
 import 'data/providers/user_profile_provider.dart';
+import 'data/providers/theme_provider.dart';
 import 'core/services/notification_service.dart';
 
 void main() async {
@@ -54,6 +55,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => HabitProvider()..init()),
         ChangeNotifierProvider(create: (_) => GoalProvider()..init()),
         ChangeNotifierProvider(create: (_) => RewardProvider()),
@@ -76,10 +78,14 @@ class BisaProduktifApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
     return MaterialApp.router(
       title: 'bisaproduktif',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       routerConfig: AppRouter.router,
     );
   }

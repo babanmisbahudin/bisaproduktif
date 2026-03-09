@@ -19,6 +19,9 @@ import '../../rewards/screens/reward_screen.dart';
 import '../../report/screens/report_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../../data/providers/notification_provider.dart';
+import '../../../data/providers/admin_provider.dart';
+import '../../../data/providers/reward_provider.dart';
+import '../../admin/screens/admin_reward_claims_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1097,77 +1100,105 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // ── Bottom nav ────────────────────────────────────────────────────────────
   Widget _buildNav() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(36),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(36),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return Consumer<AdminProvider>(
+      builder: (context, adminProvider, _) {
+        final navItems = <Widget>[
+          _navItem(
+            icon: Icons.home_rounded,
+            isActive: true,
+            badge: 0,
+            onTap: () {
+              _showNavbar();
+            },
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _navItem(
-                icon: Icons.home_rounded,
-                isActive: true,
-                badge: 0,
-                onTap: () {
-                  _showNavbar();
-                },
-              ),
-              const SizedBox(width: 2),
-              _navItem(
-                icon: Icons.bar_chart_rounded,
-                isActive: false,
-                badge: 0,
-                onTap: () {
-                  _showNavbar();
-                  Navigator.push(
-                    context,
-                    AppTransition.slideRight(child: const ReportScreen()),
-                  );
-                },
-              ),
-              const SizedBox(width: 2),
-              _navItem(
-                icon: Icons.shopping_bag_outlined,
-                isActive: false,
-                badge: 0,
-                onTap: () {
-                  _showNavbar();
-                  Navigator.push(
-                    context,
-                    AppTransition.slideRight(child: const RewardScreen()),
-                  );
-                },
-              ),
-              const SizedBox(width: 2),
-              _navItem(
-                icon: Icons.person_outlined,
-                isActive: false,
-                badge: 0,
-                onTap: () {
-                  _showNavbar();
-                  Navigator.push(
-                    context,
-                    AppTransition.slideRight(child: const ProfileScreen()),
-                  );
-                },
-              ),
-            ],
+          const SizedBox(width: 2),
+          _navItem(
+            icon: Icons.bar_chart_rounded,
+            isActive: false,
+            badge: 0,
+            onTap: () {
+              _showNavbar();
+              Navigator.push(
+                context,
+                AppTransition.slideRight(child: const ReportScreen()),
+              );
+            },
           ),
-        ),
-      ),
+          const SizedBox(width: 2),
+          _navItem(
+            icon: Icons.shopping_bag_outlined,
+            isActive: false,
+            badge: 0,
+            onTap: () {
+              _showNavbar();
+              Navigator.push(
+                context,
+                AppTransition.slideRight(child: const RewardScreen()),
+              );
+            },
+          ),
+          // Admin tab — hanya tampil jika user adalah admin
+          if (adminProvider.isAdmin) ...[
+            const SizedBox(width: 2),
+            Builder(
+              builder: (ctx) {
+                final rewardProvider = ctx.read<RewardProvider>();
+                final pendingCount = adminProvider.getPendingCount(rewardProvider);
+                return _navItem(
+                  icon: Icons.admin_panel_settings,
+                  isActive: false,
+                  badge: pendingCount,
+                  onTap: () {
+                    _showNavbar();
+                    Navigator.push(
+                      context,
+                      AppTransition.slideRight(child: const AdminRewardClaimsScreen()),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+          const SizedBox(width: 2),
+          _navItem(
+            icon: Icons.person_outlined,
+            isActive: false,
+            badge: 0,
+            onTap: () {
+              _showNavbar();
+              Navigator.push(
+                context,
+                AppTransition.slideRight(child: const ProfileScreen()),
+              );
+            },
+          ),
+        ];
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(36),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(36),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: navItems,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

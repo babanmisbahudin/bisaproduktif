@@ -60,4 +60,27 @@ class UserProfileProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  /// Auto-populate profile dari Google user info (saat pertama kali login)
+  Future<void> autoPopulateFromGoogle({
+    required String googleName,
+    required String googleEmail,
+  }) async {
+    // Hanya auto-populate jika profile belum lengkap
+    if (_name.isEmpty) {
+      _name = googleName.isEmpty ? 'User' : googleName;
+      await _prefs.setString(_keyName, _name);
+    }
+
+    // Address di-isi dengan placeholder (user harus edit nanti)
+    if (_address.isEmpty) {
+      _address = googleEmail; // Placeholder: gunakan email
+      await _prefs.setString(_keyAddress, _address);
+    }
+
+    // WhatsApp tetap kosong (opsional, user harus isi)
+    // Tidak ada perubahan pada _whatsapp
+
+    notifyListeners();
+  }
 }

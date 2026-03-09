@@ -13,6 +13,7 @@ class AdminProvider extends ChangeNotifier {
   static const List<String> allowedAdmins = [
     'admin@bisaproduktif.com',
     'developer@bisaproduktif.com',
+    'babanmisbahudin200@gmail.com',
   ];
 
   String? _adminEmail;

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/services/firebase_service.dart';
+import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/reward_provider.dart';
@@ -259,7 +260,19 @@ class _RewardScreenState extends State<RewardScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               final authProvider = context.read<AuthProvider>();
-              await authProvider.signInWithGoogle();
+              final adminProvider = context.read<AdminProvider>();
+              final profileProvider = context.read<UserProfileProvider>();
+
+              // Login dengan Google
+              final success = await authProvider.signInWithGoogle();
+
+              // Jika login berhasil, setup admin & auto-populate profile
+              if (success && context.mounted) {
+                await authProvider.completeGoogleLoginSetup(
+                  adminProvider: adminProvider,
+                  profileProvider: profileProvider,
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             child: Text(

@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/firebase_service.dart';
+import 'admin_provider.dart';
+import 'user_profile_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   late final FirebaseAuth _auth;
@@ -87,5 +89,32 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {}
     _user = null;
     notifyListeners();
+  }
+
+  /// Setelah signInWithGoogle() berhasil, panggil method ini untuk setup admin & auto-populate profile
+  Future<void> completeGoogleLoginSetup({
+    required AdminProvider adminProvider,
+    required UserProfileProvider profileProvider,
+  }) async {
+    if (_user == null) return;
+
+    final userEmail = _user!.email ?? '';
+    final userName = _user!.displayName ?? '';
+
+    // 1. Check & setup admin jika email sesuai
+    if (AdminProvider.allowedAdmins.contains(userEmail.toLowerCase())) {
+      try {
+        await adminProvider.setAdminEmail(userEmail);
+        debugPrint('[Auth] Admin setup successful for $userEmail');
+      } catch (e) {
+        debugPrint('[Auth] Admin setup failed: $e');
+      }
+    }
+
+    // 2. Auto-populate profile dari Google user info
+    await profileProvider.autoPopulateFromGoogle(
+      googleName: userName,
+      googleEmail: userEmail,
+    );
   }
 }

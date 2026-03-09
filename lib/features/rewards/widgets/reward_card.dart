@@ -54,7 +54,7 @@ class _RewardCardState extends State<RewardCard> with SingleTickerProviderStateM
             scale: scale,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
                     color: widget.reward.color.withValues(
@@ -67,7 +67,7 @@ class _RewardCardState extends State<RewardCard> with SingleTickerProviderStateM
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(18),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -83,7 +83,7 @@ class _RewardCardState extends State<RewardCard> with SingleTickerProviderStateM
                   ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -91,35 +91,35 @@ class _RewardCardState extends State<RewardCard> with SingleTickerProviderStateM
                       Text(
                         widget.reward.emoji,
                         style: TextStyle(
-                          fontSize: canAfford ? 40 : 32,
+                          fontSize: canAfford ? 32 : 28,
                           color: canAfford
                               ? Colors.white
                               : Colors.white.withValues(alpha: 0.6),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       // Judul
                       Text(
                         widget.reward.title,
                         style: GoogleFonts.poppins(
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: Colors.white.withValues(
                               alpha: canAfford ? 1.0 : 0.65),
-                          height: 1.2,
+                          height: 1.1,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       // Deskripsi
                       Text(
                         widget.reward.description,
                         style: GoogleFonts.poppins(
-                          fontSize: 11,
+                          fontSize: 10,
                           color: Colors.white.withValues(
                               alpha: canAfford ? 0.9 : 0.5),
-                          height: 1.3,
+                          height: 1.2,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

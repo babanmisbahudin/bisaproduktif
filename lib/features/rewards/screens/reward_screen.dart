@@ -53,14 +53,17 @@ class _RewardScreenState extends State<RewardScreen> {
                     ? _buildEmptyState()
                     : Builder(
                         builder: (ctx) {
-                          final gridCols = ctx.gridColumns; // mobile: 1, tablet: 2, desktop: 3
-                          final spacing = ctx.padding(14);
+                          // Ubah ke 2 kolom di mobile untuk card lebih kecil
+                          int gridCols = ctx.gridColumns;
+                          if (gridCols == 1) gridCols = 2;
+
+                          final spacing = ctx.padding(10);
                           return GridView.builder(
-                            padding: EdgeInsets.fromLTRB(16, 12, 16, 120),
+                            padding: EdgeInsets.fromLTRB(12, 12, 12, 120),
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: gridCols,
-                              childAspectRatio: 0.82,
+                              childAspectRatio: 0.75,
                               crossAxisSpacing: spacing,
                               mainAxisSpacing: spacing,
                             ),

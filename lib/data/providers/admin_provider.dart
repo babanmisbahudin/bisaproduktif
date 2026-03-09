@@ -6,8 +6,6 @@ import 'habit_provider.dart';
 
 class AdminProvider extends ChangeNotifier {
   static const String _adminEmailPref = 'admin_email';
-  static const String _loginAttemptsKey = 'admin_login_attempts';
-  static const String _lastLoginAttemptKey = 'admin_last_login_attempt';
   static const int _maxLoginAttempts = 3;
   static const int _lockoutMinutes = 60;
 

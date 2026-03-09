@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -204,14 +205,32 @@ class _RewardScreenState extends State<RewardScreen> {
     HabitProvider habitProvider,
     RewardProvider rewardProvider,
   ) {
-    // Wajib login Google sebelum tukar koin
-    final authProvider = context.read<AuthProvider>();
-    if (!authProvider.isLoggedIn) {
-      _showLoginRequiredSheet(context, authProvider, reward, habitProvider, rewardProvider);
+    _checkWhatsAppAndShowDialog(
+        context, reward, habitProvider, rewardProvider);
+  }
+
+  void _checkWhatsAppAndShowDialog(
+    BuildContext context,
+    RewardItem reward,
+    HabitProvider habitProvider,
+    RewardProvider rewardProvider,
+  ) async {
+    // Cek nomor WhatsApp di profile sebelum tukar koin
+    final prefs = await SharedPreferences.getInstance();
+    final waNumber = prefs.getString('user_whatsapp') ?? '';
+
+    if (!mounted) return;
+
+    if (waNumber.isEmpty) {
+      if (context.mounted) {
+        _showWhatsAppInputSheet(context, reward, habitProvider, rewardProvider);
+      }
       return;
     }
 
-    _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
+    if (context.mounted) {
+      _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
+    }
   }
 
   void _showRedeemDialogContent(
@@ -354,77 +373,134 @@ class _RewardScreenState extends State<RewardScreen> {
     );
   }
 
-  // ── Login Required Sheet ──────────────────────────────────────────────────
+  // ── WhatsApp Input Sheet ──────────────────────────────────────────────────
 
-  void _showLoginRequiredSheet(
+  void _showWhatsAppInputSheet(
     BuildContext context,
-    AuthProvider authProvider,
     RewardItem reward,
     HabitProvider habitProvider,
     RewardProvider rewardProvider,
   ) {
+    final waCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheetCtx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          20,
+          24,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                   color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
             ),
-            const Text('🔑', style: TextStyle(fontSize: 52)),
+            const Text('📱', style: TextStyle(fontSize: 52)),
             const SizedBox(height: 12),
-            Text('Login Diperlukan',
+            Text('Verifikasi WhatsApp',
                 style: GoogleFonts.poppins(
                     fontSize: 20, fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary)),
             const SizedBox(height: 8),
             Text(
-              'Kamu harus login dengan Google untuk menukar koin. Ini memastikan reward kamu tersimpan dan aman.',
+              'Masukkan nomor WhatsApp untuk menerima notifikasi approval reward dari admin.',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                   fontSize: 13, color: AppColors.textSecondary, height: 1.5),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final ok = await authProvider.signInWithGoogle();
-                  if (!mounted) return;
-                  Navigator.pop(sheetCtx);
-                  if (ok && mounted) {
-                    // Login berhasil, langsung ke dialog redeem tanpa cek login lagi
-                    _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
-                  } else if (!ok && mounted && authProvider.error != null) {
-                    _showSnack('Login gagal: ${authProvider.error}', AppColors.danger);
-                  }
-                },
-                icon: const Icon(Icons.login, size: 20),
-                label: Text('Login dengan Google',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600, fontSize: 15)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 20),
+            // Input field
+            TextField(
+              controller: waCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                hintText: '08xx / 62xx / +62xx',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.grey[400],
+                ),
+                prefixIcon: const Icon(Icons.phone),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
                 ),
               ),
+              style: GoogleFonts.poppins(fontSize: 13),
             ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Nanti saja',
-                  style: GoogleFonts.poppins(
-                      fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 20),
+            // Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(sheetCtx),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(color: Colors.grey[300]!),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text('Batal',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final wa = waCtrl.text.trim();
+                      if (wa.isEmpty) {
+                        _showSnack('Nomor WhatsApp tidak boleh kosong', AppColors.danger);
+                        return;
+                      }
+
+                      // Validasi format nomor WA
+                      if (!_isValidWhatsAppNumber(wa)) {
+                        _showSnack(
+                          'Format nomor tidak valid. Gunakan 08xx, 62xx, atau +62xx',
+                          AppColors.danger,
+                        );
+                        return;
+                      }
+
+                      // Simpan ke SharedPreferences
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('user_whatsapp', wa);
+
+                      if (!sheetCtx.mounted) return;
+                      Navigator.pop(sheetCtx);
+
+                      if (!context.mounted) return;
+                      // Langsung ke dialog redeem
+                      _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text('Simpan & Lanjut',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -706,5 +782,17 @@ Mohon diproses. Terima kasih! 🙏
         ],
       ),
     );
+  }
+
+  // ── WhatsApp Number Validator ──────────────────────────────────────────────
+
+  bool _isValidWhatsAppNumber(String number) {
+    // Remove spaces dan hyphens
+    final cleaned = number.replaceAll(RegExp(r'[\s\-]'), '');
+
+    // Check format: 08xx (min 10), 62xx (min 11), +62xx (min 12)
+    final regex = RegExp(r'^(08\d{8,})|(62\d{9,})|(\+62\d{9,})$');
+
+    return regex.hasMatch(cleaned);
   }
 }

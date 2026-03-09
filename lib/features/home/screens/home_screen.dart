@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -34,6 +35,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _handlePulseCtrl;
   late Animation<double> _handlePulseAnim;
 
+  // Navbar auto-hide state
+  bool _isNavbarVisible = true;
+  Timer? _navbarHideTimer;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +58,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     context.read<HabitProvider>().recordAppOpen();
     _fetchWeather();
     _checkShowTour();
+
+    // Initial show navbar, then start auto-hide timer
+    _showNavbar();
+  }
+
+  /// Show navbar dan set timer untuk auto-hide setelah 3 detik inactivity
+  void _showNavbar() {
+    if (!_isNavbarVisible) {
+      setState(() => _isNavbarVisible = true);
+    }
+    _navbarHideTimer?.cancel();
+    _navbarHideTimer = Timer(const Duration(seconds: 3), _hideNavbar);
+  }
+
+  /// Hide navbar dengan fade effect
+  void _hideNavbar() {
+    if (_isNavbarVisible && mounted) {
+      setState(() => _isNavbarVisible = false);
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -705,8 +729,67 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // ── Habit cards ───────────────────────────────────────────────────────────
   List<Widget> _buildHabitCards(HabitProvider provider) {
+    // Only show habits not yet completed today
+    final pending = provider.habits
+        .where((h) => !h.isCompletedOnDate)
+        .toList();
+
+    // All done: every habit completed today
+    final allDone = provider.habits.isNotEmpty &&
+        provider.habits.every((h) => h.isCompletedOnDate);
+
+    if (allDone) {
+      return [_allDoneBanner(provider.habits.length)];
+    }
+
     if (provider.habits.isEmpty) return [_emptyState()];
-    return provider.habits.map((h) => _habitCard(h, provider)).toList();
+
+    return pending.map((h) => _habitCard(h, provider)).toList();
+  }
+
+  Widget _allDoneBanner(int total) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 24),
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text('🎉', style: TextStyle(fontSize: 52)),
+          const SizedBox(height: 12),
+          Text(
+            'Semua selesai hari ini!',
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$total habit berhasil diselesaikan. Luar biasa!',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.88),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _emptyState() {
@@ -757,7 +840,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (dir == DismissDirection.startToEnd) {
           if (done) return false;
           final ok = await provider.completeHabit(habit.id);
-          if (mounted) ok ? _showCoin(habit.coins) : _showFraud();
+          if (mounted) ok ? _showCoin(habit.coins, provider) : _showFraud();
           return false;
         }
         return await _confirmDelete(
@@ -779,7 +862,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           if (done) return;
           final ok = await provider.completeHabit(habit.id);
           if (!mounted) return;
-          ok ? _showCoin(habit.coins) : _showFraud();
+          ok ? _showCoin(habit.coins, provider) : _showFraud();
         },
         onLongPress: () => _openEditHabit(habit),
         child: Stack(
@@ -1474,8 +1557,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Snackbars ─────────────────────────────────────────────────────────────
-  void _showCoin(int coins) {
-    _snack('+$coins COS coins! 🎉', color: AppColors.primary);
+  void _showCoin(int coins, HabitProvider provider) {
+    final allDone = provider.habits.isNotEmpty &&
+        provider.habits.every((h) => h.isCompletedOnDate);
+    final msg = allDone
+        ? '+$coins koin! Semua habit selesai! 🎉'
+        : '+$coins COS coins! 🎉';
+    _snack(msg, color: AppColors.primary);
   }
 
   void _showFraud() {

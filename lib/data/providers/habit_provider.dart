@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/services/content_validator.dart';
 import '../models/habit_model.dart';
 
 class HabitProvider extends ChangeNotifier {
@@ -84,11 +85,38 @@ class HabitProvider extends ChangeNotifier {
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
 
-  Future<void> addHabit({
+  Future<ValidationResult> addHabit({
     required String title,
     required int coins,
     required Color color,
   }) async {
+    // 1. Validate title content
+    final existingTitles = _habits.map((h) => h.title).toList();
+    final titleResult = ContentValidator.validateTitle(
+      title,
+      existingTitles: existingTitles,
+    );
+
+    if (!titleResult.isValid) {
+      if (titleResult.trustPenalty > 0) {
+        _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit tidak valid');
+      }
+      return titleResult;
+    }
+
+    // 2. Rate limit check
+    final rateResult = await ContentValidator.checkHabitRateLimit();
+    if (!rateResult.isValid) {
+      _applyTrustPenalty(rateResult.trustPenalty, 'Rate limit habit terlampaui');
+      return rateResult;
+    }
+
+    // 3. If suspicious but valid — apply trust penalty but continue
+    if (titleResult.isSuspicious && titleResult.trustPenalty > 0) {
+      _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit mencurigakan');
+    }
+
+    // 4. Proceed with creation
     final habit = HabitModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
@@ -100,6 +128,8 @@ class HabitProvider extends ChangeNotifier {
     await _box.put(habit.id, habit);
     _habits.add(habit);
     notifyListeners();
+
+    return titleResult;
   }
 
   Future<void> editHabit({
@@ -204,6 +234,11 @@ class HabitProvider extends ChangeNotifier {
     _saveTrustScore();
     debugPrint('[Anti-Fraud] Trust score -$penalty: $reason (score: $_trustScore)');
     notifyListeners();
+  }
+
+  /// Public so other providers (GoalProvider) can apply trust penalties
+  void applyTrustPenaltyPublic(int penalty, String reason) {
+    _applyTrustPenalty(penalty, reason);
   }
 
   String getTrustStatus() {

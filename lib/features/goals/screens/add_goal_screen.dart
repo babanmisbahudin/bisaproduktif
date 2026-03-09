@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/content_validator.dart';
 import '../../../core/utils/coin_calculator.dart';
 import '../../../data/models/goal_model.dart';
 import '../../../data/providers/goal_provider.dart';
@@ -80,8 +81,9 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   }
 
   Future<void> _save() async {
-    if (_titleController.text.trim().isEmpty) return;
-    if (_descController.text.trim().isEmpty) return;
+    final trimmedTitle = _titleController.text.trim();
+    final trimmedDesc = _descController.text.trim();
+    if (trimmedTitle.isEmpty || trimmedDesc.isEmpty) return;
     setState(() => _isLoading = true);
 
     final goalProvider = context.read<GoalProvider>();
@@ -90,24 +92,81 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
     if (_isEditing) {
       await goalProvider.editGoal(
         id: widget.editGoal!.id,
-        title: _titleController.text.trim(),
-        targetDescription: _descController.text.trim(),
+        title: trimmedTitle,
+        targetDescription: trimmedDesc,
         coins: _calculatedCoins,
         color: _selectedColor,
         deadline: _selectedDeadline,
       );
-    } else {
-      await goalProvider.addGoal(
-        title: _titleController.text.trim(),
-        targetDescription: _descController.text.trim(),
-        coins: _calculatedCoins,
-        color: _selectedColor,
-        deadline: _selectedDeadline,
-        habitProvider: habitProvider,
+      if (!mounted) return;
+      Navigator.pop(context);
+      return;
+    }
+
+    // Add path: run through validator
+    final result = await goalProvider.addGoal(
+      title: trimmedTitle,
+      targetDescription: trimmedDesc,
+      coins: _calculatedCoins,
+      color: _selectedColor,
+      deadline: _selectedDeadline,
+      habitProvider: habitProvider,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (!result.isValid) {
+      // Hard block — show error dialog, stay on screen
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.block_rounded, color: AppColors.danger),
+              const SizedBox(width: 8),
+              Text(
+                'Tidak Bisa Disimpan',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          content: Text(
+            result.warningMessage ?? 'Judul tidak valid.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              child: Text(
+                'Oke',
+                style: GoogleFonts.poppins(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+      return; // stay on screen so user can fix title
+    }
+
+    if (result.isSuspicious && result.warningMessage != null) {
+      // Soft warning — goal was already saved, inform user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠️ ${result.warningMessage}',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          backgroundColor: const Color(0xFFFFA500),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
+        ),
       );
     }
 
-    if (!mounted) return;
     Navigator.pop(context);
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/services/content_validator.dart';
 import '../models/goal_model.dart';
 
 class GoalProvider extends ChangeNotifier {
@@ -40,7 +41,7 @@ class GoalProvider extends ChangeNotifier {
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
 
-  Future<void> addGoal({
+  Future<ValidationResult> addGoal({
     required String title,
     required String targetDescription,
     required int coins,
@@ -48,6 +49,44 @@ class GoalProvider extends ChangeNotifier {
     DateTime? deadline,
     dynamic habitProvider,
   }) async {
+    // 1. Validate title
+    final existingTitles = _goals.map((g) => g.title).toList();
+    final titleResult = ContentValidator.validateTitle(
+      title,
+      existingTitles: existingTitles,
+    );
+
+    if (!titleResult.isValid) {
+      if (titleResult.trustPenalty > 0 && habitProvider != null) {
+        habitProvider.applyTrustPenaltyPublic(
+          titleResult.trustPenalty,
+          'Judul goal tidak valid',
+        );
+      }
+      return titleResult;
+    }
+
+    // 2. Rate limit
+    final rateResult = await ContentValidator.checkGoalRateLimit();
+    if (!rateResult.isValid) {
+      if (habitProvider != null) {
+        habitProvider.applyTrustPenaltyPublic(
+          rateResult.trustPenalty,
+          'Rate limit goal terlampaui',
+        );
+      }
+      return rateResult;
+    }
+
+    // 3. Suspicious but valid — apply penalty
+    if (titleResult.isSuspicious && titleResult.trustPenalty > 0 && habitProvider != null) {
+      habitProvider.applyTrustPenaltyPublic(
+        titleResult.trustPenalty,
+        'Judul goal mencurigakan',
+      );
+    }
+
+    // 4. Proceed with creation
     final goal = GoalModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
@@ -72,6 +111,7 @@ class GoalProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+    return titleResult;
   }
 
   Future<void> editGoal({

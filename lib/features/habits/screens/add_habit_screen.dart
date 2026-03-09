@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/content_validator.dart';
 import '../../../core/utils/coin_calculator.dart';
 import '../../../data/models/habit_model.dart';
 import '../../../data/providers/habit_provider.dart';
@@ -45,13 +44,58 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     if (_isEditing) {
       _titleController.text = widget.editHabit!.title;
       _selectedColor = widget.editHabit!.color;
+    } else {
+      // Listen to title changes untuk auto-detect kategori
+      _titleController.addListener(_autoDetectCategory);
     }
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_autoDetectCategory);
     _titleController.dispose();
     super.dispose();
+  }
+
+  /// Auto-detect kategori berdasarkan judul yang diketik
+  void _autoDetectCategory() {
+    final title = _titleController.text.toLowerCase();
+    if (title.isEmpty) {
+      setState(() => _selectedCategoryIndex = -1);
+      return;
+    }
+
+    // Cek setiap kategori untuk match keywords
+    for (int i = 0; i < _habitCategories.length; i++) {
+      final cat = _habitCategories[i];
+      for (final suggestion in cat.suggestions) {
+        if (suggestion.toLowerCase().contains(title) ||
+            title.contains(suggestion.toLowerCase())) {
+          setState(() => _selectedCategoryIndex = i);
+          return;
+        }
+      }
+    }
+
+    // Jika tidak ada match di suggestions, cek dengan CoinCalculator keywords
+    final category = CoinCalculator.habitCategory(title);
+
+    // Map kategori coins ke index
+    if (category.label.contains('Fisik')) {
+      setState(() => _selectedCategoryIndex = 2); // Olahraga
+    } else if (category.label.contains('Mindfulness')) {
+      setState(() => _selectedCategoryIndex = 0); // Ibadah (spiritual)
+    } else if (category.label.contains('Produktif')) {
+      setState(() => _selectedCategoryIndex = 1); // Bekerja
+    } else if (category.label.contains('Rumah')) {
+      setState(() => _selectedCategoryIndex = 3); // Kebersihan (or similar)
+    } else if (category.label.contains('Kesehatan')) {
+      setState(() => _selectedCategoryIndex = 4); // Kesehatan
+    } else if (category.label.contains('Relasi')) {
+      setState(() => _selectedCategoryIndex = 5); // Sosial
+    } else {
+      setState(() => _selectedCategoryIndex = -1);
+    }
   }
 
   Future<void> _save() async {
@@ -188,7 +232,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
             _buildCoinInfo(),
             const SizedBox(height: 24),
 
-            // Category chips (hanya untuk add, bukan edit)
+            // Category chips (hanya untuk add, bukan edit) — otomatis terdeteksi dari judul
             if (!_isEditing) ...[
               _buildCategorySection(),
             ],
@@ -470,7 +514,21 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Pilih Kategori'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildLabel('Kategori'),
+            if (_selectedCategoryIndex >= 0)
+              Text(
+                '✓ Terdeteksi',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
         // Horizontal scrollable category chips
         SizedBox(

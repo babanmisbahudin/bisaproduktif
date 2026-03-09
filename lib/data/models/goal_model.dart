@@ -16,6 +16,7 @@ class GoalModel {
   DateTime? deadline;
   int order;
   String reviewNotes; // catatan dari review (jika ada)
+  int? durationMonths; // optional: durasi goal dalam bulan (1, 3, 6) untuk bonus koin
 
   GoalModel({
     required this.id,
@@ -30,6 +31,7 @@ class GoalModel {
     this.deadline,
     required this.order,
     this.reviewNotes = '',
+    this.durationMonths,
   });
 
   Color get color => Color(colorValue);
@@ -83,13 +85,14 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
           : null,
       order: fields[10] as int? ?? 0,
       reviewNotes: fields[11] as String? ?? '',
+      durationMonths: fields[12] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, GoalModel obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -113,6 +116,8 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
       ..writeByte(10)
       ..write(obj.order)
       ..writeByte(11)
-      ..write(obj.reviewNotes);
+      ..write(obj.reviewNotes)
+      ..writeByte(12)
+      ..write(obj.durationMonths);
   }
 }

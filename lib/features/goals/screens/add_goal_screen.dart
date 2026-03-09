@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/services/content_validator.dart';
 import '../../../core/utils/coin_calculator.dart';
 import '../../../data/models/goal_model.dart';
 import '../../../data/providers/goal_provider.dart';
@@ -258,7 +257,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
             _buildLabel('Deadline (Opsional)'),
             const SizedBox(height: 8),
             _buildDeadlinePicker(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
             // Reward koin otomatis (info only — update saat judul/deadline berubah)
             _buildCoinInfo(),

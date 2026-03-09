@@ -89,6 +89,7 @@ class HabitProvider extends ChangeNotifier {
     required String title,
     required int coins,
     required Color color,
+    int? durationDays,
   }) async {
     // 1. Validate title content
     final existingTitles = _habits.map((h) => h.title).toList();
@@ -124,6 +125,7 @@ class HabitProvider extends ChangeNotifier {
       colorValue: color.toARGB32(),
       createdAt: DateTime.now(),
       order: _habits.length,
+      durationDays: durationDays,
     );
     await _box.put(habit.id, habit);
     _habits.add(habit);

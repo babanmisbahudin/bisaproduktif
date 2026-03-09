@@ -329,22 +329,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: _buildCoinDisplay(habitProvider.totalCoins),
               ),
 
-              // ── 5. Draggable bottom sheet ────────────────────────────────
-              DraggableScrollableSheet(
-                initialChildSize: 0.50,
-                minChildSize: 0.28,
-                maxChildSize: 0.78,
-                snap: true,
-                snapSizes: const [0.28, 0.50, 0.78],
-                builder: (ctx, sc) => _buildSheet(habitProvider, sc),
+              // ── 5. Draggable bottom sheet with navbar interaction ──────────
+              GestureDetector(
+                onVerticalDragStart: (_) => _showNavbar(),
+                onVerticalDragUpdate: (_) => _showNavbar(),
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.50,
+                  minChildSize: 0.28,
+                  maxChildSize: 0.78,
+                  snap: true,
+                  snapSizes: const [0.28, 0.50, 0.78],
+                  builder: (ctx, sc) {
+                    // Also detect scroll inside the sheet
+                    sc.addListener(_showNavbar);
+                    return _buildSheet(habitProvider, sc);
+                  },
+                ),
               ),
 
-              // ── 6. Floating bottom nav (on top) ──────────────────────────
+              // ── 6. Floating bottom nav (on top) with auto-hide ──────────────
               Positioned(
                 bottom: 10,
                 left: 0,
                 right: 0,
-                child: Center(child: _buildNav()),
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _isNavbarVisible ? 1.0 : 0.2,
+                    duration: const Duration(milliseconds: 300),
+                    child: _buildNav(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1107,37 +1121,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 icon: Icons.home_rounded,
                 isActive: true,
                 badge: 0,
-                onTap: () {},
+                onTap: () {
+                  _showNavbar();
+                },
               ),
               const SizedBox(width: 2),
               _navItem(
                 icon: Icons.bar_chart_rounded,
                 isActive: false,
                 badge: 0,
-                onTap: () => Navigator.push(
-                  context,
-                  AppTransition.slideRight(child: const ReportScreen()),
-                ),
+                onTap: () {
+                  _showNavbar();
+                  Navigator.push(
+                    context,
+                    AppTransition.slideRight(child: const ReportScreen()),
+                  );
+                },
               ),
               const SizedBox(width: 2),
               _navItem(
                 icon: Icons.shopping_bag_outlined,
                 isActive: false,
                 badge: 0,
-                onTap: () => Navigator.push(
-                  context,
-                  AppTransition.slideRight(child: const RewardScreen()),
-                ),
+                onTap: () {
+                  _showNavbar();
+                  Navigator.push(
+                    context,
+                    AppTransition.slideRight(child: const RewardScreen()),
+                  );
+                },
               ),
               const SizedBox(width: 2),
               _navItem(
                 icon: Icons.person_outlined,
                 isActive: false,
                 badge: 0,
-                onTap: () => Navigator.push(
-                  context,
-                  AppTransition.slideRight(child: const ProfileScreen()),
-                ),
+                onTap: () {
+                  _showNavbar();
+                  Navigator.push(
+                    context,
+                    AppTransition.slideRight(child: const ProfileScreen()),
+                  );
+                },
               ),
             ],
           ),

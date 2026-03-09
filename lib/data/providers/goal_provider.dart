@@ -47,6 +47,7 @@ class GoalProvider extends ChangeNotifier {
     required int coins,
     required Color color,
     DateTime? deadline,
+    int? durationMonths,
     dynamic habitProvider,
   }) async {
     // 1. Validate title
@@ -96,6 +97,7 @@ class GoalProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
       deadline: deadline,
       order: _goals.length,
+      durationMonths: durationMonths,
     );
     await _box.put(goal.id, goal);
     _goals.add(goal);

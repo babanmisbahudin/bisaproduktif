@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
-import '../../../core/services/otp_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
@@ -443,7 +442,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final nameCtrl = TextEditingController(text: profileProvider.name);
     final addressCtrl = TextEditingController(text: profileProvider.address);
     final whatsappCtrl = TextEditingController(text: profileProvider.whatsapp);
-    final otpService = OtpService();
 
     showDialog(
       context: context,
@@ -510,51 +508,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: whatsappCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        hintText: 'Contoh: +6281234567890',
-                        hintStyle: GoogleFonts.poppins(fontSize: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                    ),
+              TextField(
+                controller: whatsappCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: 'Contoh: +6281234567890 (opsional)',
+                  hintStyle: GoogleFonts.poppins(fontSize: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'Verifikasi nomor WA via OTP',
-                    child: Container(
-                      height: 44,
-                      width: 44,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _showOtpVerificationDialog(
-                            context,
-                            whatsappCtrl.text,
-                            otpService,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          child: const Icon(
-                            Icons.verified_user,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
               ),
             ],
           ),
@@ -569,25 +533,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final nav = Navigator.of(context);
               final messenger = ScaffoldMessenger.of(context);
 
-              if (nameCtrl.text.isEmpty || addressCtrl.text.isEmpty || whatsappCtrl.text.isEmpty) {
+              if (nameCtrl.text.isEmpty || addressCtrl.text.isEmpty) {
                 messenger.showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Semua field harus diisi',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                    backgroundColor: AppColors.danger,
-                  ),
-                );
-                return;
-              }
-
-              // Check WhatsApp format
-              if (!_isValidWhatsAppNumber(whatsappCtrl.text)) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Format nomor WhatsApp tidak valid (gunakan 08xx, 62xx, atau +62xx)',
+                      'Nama dan alamat harus diisi',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
                     backgroundColor: AppColors.danger,
@@ -624,56 +574,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  bool _isValidWhatsAppNumber(String number) {
-    final pattern = RegExp(r'^(08\d{8,})|(62\d{9,})|(\+62\d{9,})$');
-    return pattern.hasMatch(number.replaceAll(RegExp(r'[^\d+]'), ''));
-  }
-
-  void _showOtpVerificationDialog(
-    BuildContext context,
-    String whatsappNumber,
-    OtpService otpService,
-  ) {
-    if (whatsappNumber.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Masukkan nomor WhatsApp terlebih dahulu',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
-    if (!_isValidWhatsAppNumber(whatsappNumber)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Format nomor WhatsApp tidak valid',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
-    // Generate OTP
-    final otp = otpService.generateOtp();
-    otpService.setWhatsAppNumber(whatsappNumber);
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _OtpVerificationDialog(
-        whatsappNumber: whatsappNumber,
-        otp: otp,
-        otpService: otpService,
-      ),
-    );
-  }
 
   void _showAdminLoginDialog(BuildContext context, AdminProvider adminProvider) {
     final emailCtrl = TextEditingController();
@@ -770,257 +670,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
-  }
-}
-
-class _OtpVerificationDialog extends StatefulWidget {
-  final String whatsappNumber;
-  final String otp;
-  final OtpService otpService;
-
-  const _OtpVerificationDialog({
-    required this.whatsappNumber,
-    required this.otp,
-    required this.otpService,
-  });
-
-  @override
-  State<_OtpVerificationDialog> createState() => _OtpVerificationDialogState();
-}
-
-class _OtpVerificationDialogState extends State<_OtpVerificationDialog> {
-  final otpCtrl = TextEditingController();
-  bool isVerified = false;
-  int remainingSeconds = 300; // 5 minutes
-
-  @override
-  void initState() {
-    super.initState();
-    _startCountdown();
-  }
-
-  void _startCountdown() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          remainingSeconds = widget.otpService.getRemainingSeconds();
-          if (remainingSeconds > 0) {
-            _startCountdown();
-          }
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    otpCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final minutes = remainingSeconds ~/ 60;
-    final seconds = remainingSeconds % 60;
-
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(
-        'Verifikasi WhatsApp',
-        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // WhatsApp Number Display
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.phone, color: Colors.green, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Nomor WhatsApp',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          widget.whatsappNumber,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Info Message
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Masukkan kode OTP yang dikirim ke WhatsApp Anda',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // OTP Input Field
-            Text(
-              'Kode OTP (6 digit)',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: otpCtrl,
-              enabled: !isVerified,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 8,
-              ),
-              decoration: InputDecoration(
-                hintText: '000000',
-                hintStyle: GoogleFonts.poppins(fontSize: 24),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Timer and Debug Info
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Berlaku: $minutes:${seconds.toString().padLeft(2, '0')}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: remainingSeconds < 60 ? AppColors.danger : AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (!isVerified)
-                  Text(
-                    'Kode: ${widget.otp}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )
-                else
-                  Row(
-                    children: [
-                      const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Terverifikasi',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: Colors.green,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            widget.otpService.clearOtp();
-            Navigator.pop(context);
-          },
-          child: Text('Batal', style: GoogleFonts.poppins()),
-        ),
-        ElevatedButton(
-          onPressed: isVerified ? () => Navigator.pop(context) : () => _verifyOtp(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isVerified ? Colors.green : AppColors.primary,
-          ),
-          child: Text(
-            isVerified ? 'Selesai' : 'Verifikasi',
-            style: GoogleFonts.poppins(color: Colors.white),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _verifyOtp(BuildContext context) {
-    if (widget.otpService.verifyOtp(otpCtrl.text)) {
-      setState(() => isVerified = true);
-      final nav = Navigator.of(context);
-      final messenger = ScaffoldMessenger.of(context);
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          nav.pop();
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                '✅ WhatsApp berhasil diverifikasi',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '❌ Kode OTP tidak valid atau sudah kadaluarsa',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-    }
   }
 }

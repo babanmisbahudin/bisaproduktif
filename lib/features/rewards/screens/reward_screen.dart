@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../data/providers/auth_provider.dart';
@@ -205,32 +202,74 @@ class _RewardScreenState extends State<RewardScreen> {
     HabitProvider habitProvider,
     RewardProvider rewardProvider,
   ) {
-    _checkWhatsAppAndShowDialog(
+    _checkFirebaseAuthAndShowDialog(
         context, reward, habitProvider, rewardProvider);
   }
 
-  void _checkWhatsAppAndShowDialog(
+  void _checkFirebaseAuthAndShowDialog(
     BuildContext context,
     RewardItem reward,
     HabitProvider habitProvider,
     RewardProvider rewardProvider,
   ) async {
-    // Cek nomor WhatsApp di profile sebelum tukar koin
-    final prefs = await SharedPreferences.getInstance();
-    final waNumber = prefs.getString('user_whatsapp') ?? '';
+    final authProvider = context.read<AuthProvider>();
 
     if (!mounted) return;
 
-    if (waNumber.isEmpty) {
+    // Cek apakah user sudah login via Firebase
+    if (authProvider.user == null) {
+      // User belum login — tampilkan login dialog
       if (context.mounted) {
-        _showWhatsAppInputSheet(context, reward, habitProvider, rewardProvider);
+        _showLoginRequiredDialog(context);
       }
       return;
     }
 
+    // User sudah login — tampilkan redeem dialog
     if (context.mounted) {
       _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
     }
+  }
+
+  void _showLoginRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.login, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Text(
+              'Login Diperlukan',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        content: Text(
+          'Silakan login dengan Google untuk menukar reward.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final authProvider = context.read<AuthProvider>();
+              await authProvider.signInWithGoogle();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: Text(
+              'Login Google',
+              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showRedeemDialogContent(
@@ -375,139 +414,6 @@ class _RewardScreenState extends State<RewardScreen> {
 
   // ── WhatsApp Input Sheet ──────────────────────────────────────────────────
 
-  void _showWhatsAppInputSheet(
-    BuildContext context,
-    RewardItem reward,
-    HabitProvider habitProvider,
-    RewardProvider rewardProvider,
-  ) {
-    final waCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (sheetCtx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          20,
-          24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                  color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-            ),
-            const Text('📱', style: TextStyle(fontSize: 52)),
-            const SizedBox(height: 12),
-            Text('Verifikasi WhatsApp',
-                style: GoogleFonts.poppins(
-                    fontSize: 20, fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
-            const SizedBox(height: 8),
-            Text(
-              'Masukkan nomor WhatsApp untuk menerima notifikasi approval reward dari admin.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  fontSize: 13, color: AppColors.textSecondary, height: 1.5),
-            ),
-            const SizedBox(height: 20),
-            // Input field
-            TextField(
-              controller: waCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: '08xx / 62xx / +62xx',
-                hintStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey[400],
-                ),
-                prefixIcon: const Icon(Icons.phone),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-              ),
-              style: GoogleFonts.poppins(fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            // Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(sheetCtx),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.grey[300]!),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: Text('Batal',
-                        style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final wa = waCtrl.text.trim();
-                      if (wa.isEmpty) {
-                        _showSnack('Nomor WhatsApp tidak boleh kosong', AppColors.danger);
-                        return;
-                      }
-
-                      // Validasi format nomor WA
-                      if (!_isValidWhatsAppNumber(wa)) {
-                        _showSnack(
-                          'Format nomor tidak valid. Gunakan 08xx, 62xx, atau +62xx',
-                          AppColors.danger,
-                        );
-                        return;
-                      }
-
-                      // Simpan ke SharedPreferences
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString('user_whatsapp', wa);
-
-                      if (!sheetCtx.mounted) return;
-                      Navigator.pop(sheetCtx);
-
-                      if (!context.mounted) return;
-                      // Langsung ke dialog redeem
-                      _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: Text('Simpan & Lanjut',
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _processRedeem(
     RewardItem reward,
     HabitProvider habitProvider,
@@ -516,12 +422,7 @@ class _RewardScreenState extends State<RewardScreen> {
     final authProvider = context.read<AuthProvider>();
     final profileProvider = context.read<UserProfileProvider>();
 
-    // Check if profile is complete
-    if (!profileProvider.isProfileComplete) {
-      _showSnack('❌ Lengkapi profil terlebih dahulu (Nama, Alamat, WhatsApp)', AppColors.danger);
-      return;
-    }
-
+    // User sudah login via Firebase (sudah dicek di _checkFirebaseAuthAndShowDialog)
     final userId = authProvider.user?.uid ?? 'anonymous';
     final userName = profileProvider.name.isNotEmpty ? profileProvider.name : 'User';
 
@@ -545,8 +446,6 @@ class _RewardScreenState extends State<RewardScreen> {
         },
       );
       FirebaseService.syncCoins(habitProvider.totalCoins);
-      // Kirim notif ke admin via WhatsApp otomatis
-      await _sendWhatsAppMessage(reward, profileProvider);
     }
 
     if (!mounted) return;
@@ -612,39 +511,6 @@ class _RewardScreenState extends State<RewardScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _sendWhatsAppMessage(RewardItem reward, UserProfileProvider profileProvider) async {
-    final adminPhoneNumber = AppStrings.adminWhatsappNumber;
-
-    final message = '''
-Halo Admin! 👋
-
-Saya ingin menukar poin di aplikasi BisaProduktif:
-
-📋 Data Penukar:
-Nama: ${profileProvider.name}
-Alamat: ${profileProvider.address}
-WhatsApp: ${profileProvider.whatsapp}
-
-🎁 Reward:
-${reward.emoji} ${reward.title}
-Harga: ${reward.price} koin
-
-Mohon diproses. Terima kasih! 🙏
-    ''';
-
-    final whatsappUrl = 'https://wa.me/$adminPhoneNumber?text=${Uri.encodeFull(message)}';
-
-    try {
-      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
-        await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
-      } else {
-        _showSnack('WhatsApp tidak tersedia di device ini', AppColors.warning);
-      }
-    } catch (e) {
-      _showSnack('Gagal membuka WhatsApp: $e', AppColors.danger);
-    }
   }
 
   void _showSnack(String message, Color color) {
@@ -784,15 +650,4 @@ Mohon diproses. Terima kasih! 🙏
     );
   }
 
-  // ── WhatsApp Number Validator ──────────────────────────────────────────────
-
-  bool _isValidWhatsAppNumber(String number) {
-    // Remove spaces dan hyphens
-    final cleaned = number.replaceAll(RegExp(r'[\s\-]'), '');
-
-    // Check format: 08xx (min 10), 62xx (min 11), +62xx (min 12)
-    final regex = RegExp(r'^(08\d{8,})|(62\d{9,})|(\+62\d{9,})$');
-
-    return regex.hasMatch(cleaned);
-  }
 }

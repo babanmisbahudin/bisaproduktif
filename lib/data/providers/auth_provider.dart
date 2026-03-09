@@ -82,11 +82,25 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Logout dan reset semua data (coins, habits, goals)
   Future<void> signOut() async {
+    try {
+      // Save coins to Firebase sebelum logout
+      await FirebaseService.saveUserProfile(
+        name: '',
+        gender: 'male',
+        totalCoins: 0, // Reset coins saat logout
+        trustScore: 70,
+      );
+    } catch (e) {
+      debugPrint('[Auth] Failed to save data to Firebase: $e');
+    }
+
     try {
       await _googleSignIn.signOut();
       await _auth.signOut();
     } catch (_) {}
+
     _user = null;
     notifyListeners();
   }
@@ -116,5 +130,22 @@ class AuthProvider extends ChangeNotifier {
       googleName: userName,
       googleEmail: userEmail,
     );
+
+    // 3. Sync user profile ke Firebase (simpan nama, coins, trust score)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final totalCoins = prefs.getInt('user_coins') ?? 0;
+      final trustScore = prefs.getInt('trust_score') ?? 70;
+
+      await FirebaseService.saveUserProfile(
+        name: userName,
+        gender: prefs.getString('user_gender') ?? 'male',
+        totalCoins: totalCoins,
+        trustScore: trustScore,
+      );
+      debugPrint('[Auth] Profile synced to Firebase');
+    } catch (e) {
+      debugPrint('[Auth] Failed to sync profile to Firebase: $e');
+    }
   }
 }

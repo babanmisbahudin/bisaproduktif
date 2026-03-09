@@ -8,6 +8,7 @@ import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
 import '../../../data/providers/notification_provider.dart';
 import '../../../data/providers/theme_provider.dart';
+import '../../../data/providers/habit_provider.dart';
 import '../../admin/screens/admin_panel_screen.dart';
 import '../../notifications/screens/notification_settings_screen.dart';
 
@@ -208,13 +209,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: OutlinedButton.icon(
                 onPressed: () async {
                   final nav = Navigator.of(context);
+                  final habitProvider = context.read<HabitProvider>();
+
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (_) => AlertDialog(
                       title: Text('Logout',
                           style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
                       content: Text(
-                        'Yakin ingin logout?',
+                        'Yakin ingin logout? Semua data (koin, habit, goal) akan direset.',
                         style: GoogleFonts.poppins(),
                       ),
                       actions: [
@@ -230,6 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   );
                   if (confirm == true && mounted) {
+                    await habitProvider.clearUserData();
                     await authProvider.signOut();
                     if (mounted) nav.pop();
                   }

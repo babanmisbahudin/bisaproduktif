@@ -380,4 +380,21 @@ class HabitProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('app_open_time', DateTime.now().toIso8601String());
   }
+
+  /// Clear semua user data saat logout
+  Future<void> clearUserData() async {
+    _totalCoins = 0;
+    _trustScore = 70;
+    _habits.clear();
+
+    // Clear dari SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_coinsKey);
+    await prefs.remove(_trustScoreKey);
+
+    // Clear dari Hive
+    await _box.clear();
+
+    notifyListeners();
+  }
 }

@@ -55,7 +55,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()..init()),
         ChangeNotifierProvider(create: (_) => HabitProvider()..init()),
         ChangeNotifierProvider(create: (_) => GoalProvider()..init()),
         ChangeNotifierProvider(create: (_) => RewardProvider()),

@@ -27,7 +27,8 @@ class FocusHistoryScreen extends StatelessWidget {
       ),
       body: Consumer<FocusTimerProvider>(
         builder: (context, focusProvider, _) {
-          final sessions = focusProvider.getCompletedSessions(limit: 50);
+          // Tampilkan hanya 5 riwayat terakhir
+          final sessions = focusProvider.getCompletedSessions(limit: 5);
 
           return RefreshIndicator(
             onRefresh: () async {

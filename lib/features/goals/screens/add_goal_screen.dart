@@ -654,27 +654,57 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
           style: GoogleFonts.poppins(fontSize: 14),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Batal',
-                style: GoogleFonts.poppins(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () async {
-              final dialogCtx = ctx;
-              final stateContext = context;
-              final provider = stateContext.read<GoalProvider>();
-              await provider.deleteGoal(widget.editGoal!.id);
-              if (!mounted) return;
-              Navigator.pop(dialogCtx);
-              if (mounted) {
-                Navigator.pop(stateContext);
-              }
-            },
-            child: Text('Hapus',
-                style: GoogleFonts.poppins(color: Colors.white)),
+          // Horizontal aligned buttons dengan equal width
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.textSecondary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'Batal',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final dialogCtx = ctx;
+                    final stateContext = context;
+                    final provider = stateContext.read<GoalProvider>();
+                    await provider.deleteGoal(widget.editGoal!.id);
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                    if (mounted) {
+                      Navigator.pop(stateContext);
+                    }
+                  },
+                  child: Text(
+                    'Hapus',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

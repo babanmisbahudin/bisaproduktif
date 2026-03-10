@@ -247,6 +247,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (_) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       title: Text('Logout',
                           style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
                       content: Text(
@@ -254,13 +257,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.poppins(),
                       ),
                       actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Batal'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Logout'),
+                        // Horizontal aligned buttons dengan equal width
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: AppColors.textSecondary),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Batal',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.danger,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(
+                                  'Logout',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

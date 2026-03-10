@@ -11,6 +11,7 @@ class FocusSessionModel {
   String category; // "reading", "prayer", "work", "study"
   bool isPomodoro; // true jika Pomodoro session
   int pomodoroCount; // Berapa siklus Pomodoro sudah selesai
+  bool wasCheatDetected; // Anti-fraud: true jika terdeteksi manipulasi waktu
 
   FocusSessionModel({
     required this.id,
@@ -23,6 +24,7 @@ class FocusSessionModel {
     required this.category,
     this.isPomodoro = false,
     this.pomodoroCount = 0,
+    this.wasCheatDetected = false,
   });
 }
 
@@ -43,6 +45,7 @@ class FocusSessionModelAdapter extends TypeAdapter<FocusSessionModel> {
       category: reader.readString(),
       isPomodoro: reader.readBool(),
       pomodoroCount: reader.readInt(),
+      wasCheatDetected: reader.readBool(),
     );
   }
 
@@ -58,5 +61,6 @@ class FocusSessionModelAdapter extends TypeAdapter<FocusSessionModel> {
     writer.writeString(obj.category);
     writer.writeBool(obj.isPomodoro);
     writer.writeInt(obj.pomodoroCount);
+    writer.writeBool(obj.wasCheatDetected);
   }
 }

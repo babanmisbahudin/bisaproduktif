@@ -444,29 +444,25 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
               ),
               const SizedBox(height: 30),
 
-              // Controls
+              // Controls: Selesai (Complete) & Stop
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton.icon(
-                    onPressed: () async {
-                      if (focusProvider.isTimerActive) {
-                        focusProvider.pauseTimer();
-                      } else {
-                        focusProvider.resumeTimer();
-                      }
-                    },
-                    icon: Icon(
-                      focusProvider.isTimerActive
-                          ? Icons.pause
-                          : Icons.play_arrow,
-                    ),
+                    onPressed: remaining <= 0
+                        ? () async {
+                            await focusProvider.completeSession();
+                            if (mounted) setState(() {});
+                          }
+                        : null,
+                    icon: const Icon(Icons.check_circle),
                     label: Text(
-                      focusProvider.isTimerActive ? 'Pause' : 'Resume',
+                      'Selesai',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
+                      backgroundColor: Colors.green,
+                      disabledBackgroundColor: Colors.grey,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -477,7 +473,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                     },
                     icon: const Icon(Icons.close),
                     label: Text(
-                      'Stop',
+                      'Batalkan',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -489,7 +485,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
 
               const SizedBox(height: 40),
 
-              // Info
+              // Info & Anti-Cheat Warning
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -498,6 +494,23 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                 ),
                 child: Column(
                   children: [
+                    Text(
+                      '⏱️ Waktu harus selesai sepenuhnya untuk mendapat poin',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.yellow,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '⚠️ Manipulasi waktu sistem akan membatalkan reward',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       '📵 Semua notifikasi dimatikan saat fokus',
                       style: GoogleFonts.poppins(

@@ -122,9 +122,18 @@ class FocusTimerProvider extends ChangeNotifier {
       _currentSession!.isCompleted = true;
       _currentSession!.completedAt = DateTime.now();
 
-      // Calculate reward coins
-      reward = calculateFocusReward(_currentSession!);
-      _lastRewardCoins = reward;
+      // Anti-cheat: Check untuk manipulasi waktu
+      final (isCheat, reason) = _detectTimerCheat(_currentSession!);
+
+      if (isCheat) {
+        debugPrint('[FocusTimer] CHEAT DETECTED: $reason - No reward given');
+        reward = 0; // No reward para cheater
+        _currentSession!.wasCheatDetected = true;
+      } else {
+        // Calculate reward coins (hanya jika tidak ada cheat)
+        reward = calculateFocusReward(_currentSession!);
+        _lastRewardCoins = reward;
+      }
 
       _box.put(_currentSession!.id, _currentSession!);
     }
@@ -191,20 +200,37 @@ class FocusTimerProvider extends ChangeNotifier {
     });
   }
 
-  /// Pause timer
-  void pauseTimer() {
-    _isActive = false;
-    _timer?.cancel();
-    notifyListeners();
-  }
-
-  /// Resume timer
-  void resumeTimer() {
-    if (_currentSession != null) {
-      _isActive = true;
-      _startCountdown();
-      notifyListeners();
+  /// Deteksi manipulasi waktu sistem atau cheat pada fokus timer
+  /// Returns (isCheat, reason)
+  (bool, String) _detectTimerCheat(FocusSessionModel session) {
+    // Cek 1: Elapsed time harus >= duration (jangan kurang)
+    if (session.elapsedSeconds < session.durationSeconds) {
+      // Jika elapsed kurang dari duration, berarti ada yang aneh
+      // Tapi ini tidak akan terjadi karena timer hanya complete saat elapsed >= duration
+      return (true, 'Elapsed time kurang dari duration');
     }
+
+    // Cek 2: Clock jump detection
+    // Jika elapsed >> duration (e.g., 2x lipat), suspect manipulasi waktu
+    final ratio = session.elapsedSeconds / session.durationSeconds;
+    if (ratio > 2.5) {
+      // Clock mungkin di-set mundur lalu maju dengan cepat
+      return (true, 'Clock jump terdeteksi (elapsed ${session.elapsedSeconds}s > duration ${session.durationSeconds}s)');
+    }
+
+    // Cek 3: Timing validation
+    // Rekam timestamp sebelum & sesudah untuk validasi
+    final now = DateTime.now();
+    final actualDuration = now.difference(session.startedAt).inSeconds;
+    final timeDiff = (actualDuration - session.elapsedSeconds).abs();
+
+    // Jika beda time > 10 detik, ada yang aneh
+    if (timeDiff > 10) {
+      return (true, 'Time sync mismatch: actual=$actualDuration vs elapsed=${session.elapsedSeconds}');
+    }
+
+    // No cheat detected
+    return (false, '');
   }
 
   /// Stop dan complete session, return reward coins

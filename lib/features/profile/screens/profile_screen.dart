@@ -62,31 +62,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 80),
         children: [
+          // ── Google Account Section (Readonly) ──────────────────────────────
+          if (authProvider.isLoggedIn)
+            _buildGoogleAccountCard(authProvider)
+          else
+            _buildLoginCard(context, authProvider),
+
+          const SizedBox(height: 16),
+
           // ── Profile Section ────────────────────────────────────────────────
           _buildProfileInfoCard(profileProvider),
 
           const SizedBox(height: 16),
 
-          // ── Edit Profile Button ─────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ElevatedButton.icon(
-              onPressed: () => _showEditProfileDialog(context, profileProvider),
-              icon: const Icon(Icons.edit),
-              label: Text(
-                'Edit Profil',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          // ── Edit Profile Button (hanya jika login) ──────────────────────────
+          if (authProvider.isLoggedIn)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: () => _showEditProfileDialog(context, profileProvider),
+                icon: const Icon(Icons.edit),
+                label: Text(
+                  'Edit Profil',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-          ),
 
           const SizedBox(height: 20),
 
@@ -500,6 +509,154 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Build Google Account Card (Readonly)
+  Widget _buildGoogleAccountCard(AuthProvider authProvider) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _getContainerColor(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.cloud_outlined, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Akun Google (Read-only)',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _getTextPrimaryColor(context),
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.verified, color: Colors.green, size: 18),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildProfileField(
+            icon: Icons.person,
+            label: 'Nama Google',
+            value: authProvider.displayName.isEmpty ? '-' : authProvider.displayName,
+          ),
+          const SizedBox(height: 12),
+          _buildProfileField(
+            icon: Icons.email,
+            label: 'Email',
+            value: authProvider.email.isEmpty ? '-' : authProvider.email,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '💡 Data dari Google Account tidak bisa diubah di sini. Edit dari akun Google Anda.',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+              color: _getTextSecondaryColor(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build Login Card (when not logged in)
+  Widget _buildLoginCard(BuildContext context, AuthProvider authProvider) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary,
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '🔐 Login dengan Google',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _getTextPrimaryColor(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sync data Anda ke Google Cloud & akses di perangkat lain',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: _getTextSecondaryColor(context),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: authProvider.isLoading
+                  ? null
+                  : () async {
+                      final success = await authProvider.signInWithGoogle();
+                      if (!mounted) return;
+                      if (success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '✅ Login berhasil!',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                            ),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+              icon: authProvider.isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.login),
+              label: Text(
+                authProvider.isLoading ? 'Sedang login...' : 'Login Google',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

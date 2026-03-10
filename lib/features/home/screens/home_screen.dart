@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,12 +65,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Clear user name dari SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.remove('user_name');
-          // Navigate ke splash screen dan remove semua routes di stack
+          // Navigate ke splash screen menggunakan go_router
           if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/splash',
-              (route) => false,
-            );
+            GoRouter.of(context).goNamed('splash');
           }
         }
       };

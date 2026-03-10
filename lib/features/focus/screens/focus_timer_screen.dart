@@ -290,6 +290,14 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
+  String _getTimeLabel(int totalSeconds) {
+    final h = totalSeconds ~/ 3600;
+    if (h > 0) {
+      return 'Jam:Menit:Detik';
+    }
+    return 'Menit:Detik';
+  }
+
   Widget _buildActiveTimer(
     BuildContext context,
     FocusTimerProvider focusProvider,
@@ -367,6 +375,16 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                                   color: Colors.white,
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _getTimeLabel(remaining),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               Text(
                                 '⏱️ Berjalan',
                                 style: GoogleFonts.poppins(

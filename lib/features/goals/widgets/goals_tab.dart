@@ -259,9 +259,6 @@ class GoalsTab extends StatelessWidget {
         onLongPress: goal.status == GoalStatus.active
             ? () => _openEditGoal(context, goal)
             : null,
-        onProgressChanged: goal.status == GoalStatus.active
-            ? (val) => provider.updateProgress(goal.id, val)
-            : null,
         onSendForReview: goal.status == GoalStatus.active &&
                 goal.currentProgress >= goal.targetProgress
             ? () => _confirmSendForReview(context, provider, goal)

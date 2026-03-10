@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/firebase_service.dart';
 import 'admin_provider.dart';
 import 'user_profile_provider.dart';
+import 'habit_provider.dart';
 
 class AuthProvider extends ChangeNotifier {
   late final FirebaseAuth _auth;
@@ -109,6 +110,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> completeGoogleLoginSetup({
     required AdminProvider adminProvider,
     required UserProfileProvider profileProvider,
+    HabitProvider? habitProvider,
   }) async {
     if (_user == null) return;
 
@@ -131,7 +133,26 @@ class AuthProvider extends ChangeNotifier {
       googleEmail: userEmail,
     );
 
-    // 3. Sync user profile ke Firebase (simpan nama, coins, trust score)
+    // 3. Fetch coins dari Firebase & sync ke local storage
+    try {
+      final userData = await FirebaseService.getUserData();
+      if (userData != null && userData['totalCoins'] != null) {
+        final firebaseCoins = userData['totalCoins'] as int;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('user_coins', firebaseCoins);
+
+        // Update HabitProvider dengan coins dari Firebase
+        if (habitProvider != null) {
+          habitProvider.syncCoinsFromFirebase(firebaseCoins);
+        }
+
+        debugPrint('[Auth] Coins synced from Firebase: $firebaseCoins');
+      }
+    } catch (e) {
+      debugPrint('[Auth] Failed to sync coins from Firebase: $e');
+    }
+
+    // 4. Sync user profile ke Firebase (simpan nama, coins, trust score)
     try {
       final prefs = await SharedPreferences.getInstance();
       final totalCoins = prefs.getInt('user_coins') ?? 0;

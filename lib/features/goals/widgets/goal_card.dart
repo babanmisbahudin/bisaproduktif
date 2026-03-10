@@ -149,30 +149,6 @@ class GoalCard extends StatelessWidget {
               ),
             ),
 
-            // Progress slider (hanya untuk active)
-            if (goal.status == GoalStatus.active && onProgressChanged != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: Colors.white,
-                    inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white.withValues(alpha: 0.2),
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 7),
-                  ),
-                  child: Slider(
-                    value: goal.currentProgress.toDouble(),
-                    min: 0,
-                    max: goal.targetProgress.toDouble(),
-                    divisions: goal.targetProgress,
-                    onChanged: (val) => onProgressChanged!(val.toInt()),
-                  ),
-                ),
-              ),
-
             // Actions (hanya untuk active & progress 100%)
             if (goal.status == GoalStatus.active &&
                 goal.currentProgress >= goal.targetProgress &&

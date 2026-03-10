@@ -74,7 +74,14 @@ void main() async {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => UserProfileProvider()..init()),
         ChangeNotifierProvider(create: (_) => MemoProvider()..init()),
-        ChangeNotifierProvider(create: (_) => FocusTimerProvider()..init()),
+        ChangeNotifierProvider(create: (_) {
+          final focusTimer = FocusTimerProvider()..init();
+          // Restore session jika ada yang aktif saat app dibuka
+          Future.delayed(const Duration(milliseconds: 100), () {
+            focusTimer.restoreSessionIfActive();
+          });
+          return focusTimer;
+        }),
       ],
       child: const BisaProduktifApp(),
     ),

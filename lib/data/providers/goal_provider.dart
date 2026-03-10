@@ -33,6 +33,13 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> clearUserData() async {
+    _goals.clear();
+    await _box.clear();
+    _isLoaded = false;
+    notifyListeners();
+  }
+
   void _loadGoals() {
     _goals = _box.values.toList()
       ..sort((a, b) => a.order.compareTo(b.order));
@@ -153,10 +160,26 @@ class GoalProvider extends ChangeNotifier {
 
   // ── Progress ──────────────────────────────────────────────────────────────
 
-  Future<void> updateProgress(String id, int newProgress) async {
-    final goal = _box.get(id);
+  /// Sync goal progress dari habits yang sudah diselesaikan hari ini
+  /// Digunakan untuk auto-update progress saat user menyelesaikan daily habit
+  Future<void> syncProgressFromHabits(String goalId, List<dynamic> allHabits) async {
+    final goal = _box.get(goalId);
     if (goal == null || goal.status != GoalStatus.active) return;
+
+    // Hitung total dan completed habits untuk goal ini
+    final goalsHabits =
+        allHabits.where((h) => h.goalId == goalId).toList();
+    if (goalsHabits.isEmpty) return;
+
+    final completedHabits = goalsHabits
+        .where((h) => h.isCompletedOnDate == true)
+        .length;
+
+    // Hitung progress: (completed / total) * 100
+    final newProgress =
+        ((completedHabits / goalsHabits.length) * 100).round();
     goal.currentProgress = newProgress.clamp(0, goal.targetProgress);
+
     await _box.put(goal.id, goal);
     _loadGoals();
     notifyListeners();

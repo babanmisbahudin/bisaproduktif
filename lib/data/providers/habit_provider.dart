@@ -163,7 +163,7 @@ class HabitProvider extends ChangeNotifier {
 
   // ── Complete Habit ────────────────────────────────────────────────────────
 
-  Future<bool> completeHabit(String id) async {
+  Future<bool> completeHabit(String id, {dynamic goalProvider}) async {
     final habit = _box.get(id);
     if (habit == null || habit.isCompletedOnDate) return false;
 
@@ -213,6 +213,11 @@ class HabitProvider extends ChangeNotifier {
     }
 
     await _box.put(habit.id, habit);
+
+    // Sync goal progress jika habit ini terikat ke goal
+    if (habit.goalId != null && goalProvider != null) {
+      await goalProvider.syncProgressFromHabits(habit.goalId, _habits);
+    }
 
     // Tambah koin
     _totalCoins += habit.coins;
@@ -379,6 +384,13 @@ class HabitProvider extends ChangeNotifier {
   Future<void> recordAppOpen() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('app_open_time', DateTime.now().toIso8601String());
+  }
+
+  /// Sync coins dari Firebase setelah login
+  Future<void> syncCoinsFromFirebase(int firebaseCoins) async {
+    _totalCoins = firebaseCoins;
+    await _saveCoins();
+    notifyListeners();
   }
 
   /// Clear semua user data saat logout

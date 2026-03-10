@@ -12,6 +12,7 @@ import '../../../core/services/weather_service.dart' as weather;
 import '../../../data/providers/auth_provider.dart' as auth_prov;
 import '../../../data/models/habit_model.dart';
 import '../../../data/providers/habit_provider.dart';
+import '../../../data/providers/goal_provider.dart';
 import '../../habits/screens/add_habit_screen.dart';
 import '../../goals/screens/add_goal_screen.dart';
 import '../../goals/widgets/goals_tab.dart';
@@ -21,6 +22,8 @@ import '../../profile/screens/profile_screen.dart';
 import '../../../data/providers/notification_provider.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/reward_provider.dart';
+import '../../../data/providers/memo_provider.dart';
+import '../../../data/providers/focus_timer_provider.dart';
 import '../../admin/screens/admin_reward_claims_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -37,10 +40,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   late AnimationController _handlePulseCtrl;
   late Animation<double> _handlePulseAnim;
-
-  // Navbar auto-hide state
-  bool _isNavbarVisible = true;
-  Timer? _navbarHideTimer;
 
   @override
   void initState() {
@@ -61,25 +60,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     context.read<HabitProvider>().recordAppOpen();
     _fetchWeather();
     _checkShowTour();
-
-    // Initial show navbar, then start auto-hide timer
-    _showNavbar();
-  }
-
-  /// Show navbar dan set timer untuk auto-hide setelah 3 detik inactivity
-  void _showNavbar() {
-    if (!_isNavbarVisible) {
-      setState(() => _isNavbarVisible = true);
-    }
-    _navbarHideTimer?.cancel();
-    _navbarHideTimer = Timer(const Duration(seconds: 3), _hideNavbar);
-  }
-
-  /// Hide navbar dengan fade effect
-  void _hideNavbar() {
-    if (_isNavbarVisible && mounted) {
-      setState(() => _isNavbarVisible = false);
-    }
   }
 
   Future<void> _loadUserData() async {
@@ -304,61 +284,60 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       builder: (_, habitProvider, _) {
         return Scaffold(
           backgroundColor: const Color(0xFF020912),
-          body: Stack(
+          body: Column(
             children: [
-              // ── 1. Full-screen dynamic scene ─────────────────────────────
-              Positioned.fill(
-                child: DynamicSceneWidget(
-                  weather: _weatherData?.type ?? WeatherType.clear,
+              // ── Main content area (Stack with background + sheet) ──────────
+              Expanded(
+                child: Stack(
+                  children: [
+                    // ── 1. Full-screen dynamic scene ─────────────────────────
+                    Positioned.fill(
+                      child: DynamicSceneWidget(
+                        weather: _weatherData?.type ?? WeatherType.clear,
+                      ),
+                    ),
+
+                    // ── 2. Header (name + progress) ──────────────────────────
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: _buildHeader(habitProvider),
+                      ),
+                    ),
+
+                    // ── 3. Coin counter in the sky ──────────────────────────
+                    Positioned(
+                      top: topPad + mq.size.height * 0.32,
+                      left: 0,
+                      right: 0,
+                      child: _buildCoinDisplay(habitProvider.totalCoins),
+                    ),
+
+                    // ── 4. Draggable bottom sheet ────────────────────────────
+                    DraggableScrollableSheet(
+                      initialChildSize: 0.50,
+                      minChildSize: 0.28,
+                      maxChildSize: 0.78,
+                      snap: true,
+                      snapSizes: const [0.28, 0.50, 0.78],
+                      builder: (ctx, sc) {
+                        return _buildSheet(habitProvider, sc);
+                      },
+                    ),
+                  ],
                 ),
               ),
 
-              // ── 2. Header (name + progress) ──────────────────────────────
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: _buildHeader(habitProvider),
-                ),
-              ),
-
-              // ── 3. Coin counter in the sky ───────────────────────────────
-              Positioned(
-                top: topPad + mq.size.height * 0.32,
-                left: 0,
-                right: 0,
-                child: _buildCoinDisplay(habitProvider.totalCoins),
-              ),
-
-              // ── 5. Draggable bottom sheet with navbar interaction ──────────
-              GestureDetector(
-                onVerticalDragStart: (_) => _showNavbar(),
-                onVerticalDragUpdate: (_) => _showNavbar(),
-                child: DraggableScrollableSheet(
-                  initialChildSize: 0.50,
-                  minChildSize: 0.28,
-                  maxChildSize: 0.78,
-                  snap: true,
-                  snapSizes: const [0.28, 0.50, 0.78],
-                  builder: (ctx, sc) {
-                    // Also detect scroll inside the sheet
-                    sc.addListener(_showNavbar);
-                    return _buildSheet(habitProvider, sc);
-                  },
-                ),
-              ),
-
-              // ── 6. Floating bottom nav (on top) with auto-hide ──────────────
-              Positioned(
-                bottom: 10,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: _isNavbarVisible ? 1.0 : 0.2,
-                    duration: const Duration(milliseconds: 300),
+              // ── Fixed bottom navbar ──────────────────────────────────────
+              SafeArea(
+                top: false,
+                child: Container(
+                  color: const Color(0xFF020912),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                  child: Center(
                     child: _buildNav(),
                   ),
                 ),
@@ -580,10 +559,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Bottom sheet ──────────────────────────────────────────────────────────
   Widget _buildSheet(HabitProvider provider, ScrollController sc) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1A1A1A)
+            : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: const [
           BoxShadow(
             color: Color(0x22000000),
             blurRadius: 28,
@@ -682,18 +663,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
           // Content
           Expanded(
-            child: _selectedTab == 0
-                ? (provider.isLoaded
-                      ? ListView(
-                          controller: sc,
-                          padding: const EdgeInsets.fromLTRB(22, 12, 22, 90),
-                          children: _buildHabitCards(provider),
-                        )
-                      : const Center(child: CircularProgressIndicator()))
-                : GoalsTab(
-                    onCoinEarned: () => setState(() {}),
-                    scrollController: sc,
-                  ),
+            child: _buildTabContent(provider, sc),
           ),
         ],
       ),
@@ -702,12 +672,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // ── Tab switcher ──────────────────────────────────────────────────────────
   Widget _buildTabs() {
-    return Row(
-      children: [
-        _tabPill('Daily habits', 0),
-        const SizedBox(width: 8),
-        _tabPill('Goals', 1),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tabPill('Daily habits', 0),
+          const SizedBox(width: 8),
+          _tabPill('Goals', 1),
+          const SizedBox(width: 8),
+          _tabPill('Memo', 2),
+          const SizedBox(width: 8),
+          _tabPill('Focus', 3),
+        ],
+      ),
     );
   }
 
@@ -715,29 +692,769 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final isSelected = _selectedTab == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedTab = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.28),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          // Underline untuk active tab
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            height: isSelected ? 3 : 0,
+            width: label.length * 8.0,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab Content ───────────────────────────────────────────────────────────
+  Widget _buildTabContent(HabitProvider habitProvider, ScrollController sc) {
+    return switch (_selectedTab) {
+      0 => // Daily habits
+        (habitProvider.isLoaded
+            ? ListView(
+                controller: sc,
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 90),
+                children: _buildHabitCards(habitProvider),
+              )
+            : const Center(child: CircularProgressIndicator())),
+      1 => // Goals
+        GoalsTab(
+          onCoinEarned: () => setState(() {}),
+          scrollController: sc,
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : AppColors.primary,
+      2 => // Memo
+        Consumer<MemoProvider>(
+          builder: (_, memoProvider, __) {
+            final memos = memoProvider.memos;
+            final memoInputCtrl = TextEditingController();
+
+            final memoItems = [
+              // Input field untuk memo baru (item 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tulis Memo',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF2A2A2A)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              controller: memoInputCtrl,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Ketik memo...',
+                                hintStyle: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                              ),
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            final text = memoInputCtrl.text.trim();
+                            if (text.isEmpty) {
+                              _snack('Tulis memo terlebih dahulu');
+                              return;
+                            }
+                            await memoProvider.addMemo(content: text);
+                            memoInputCtrl.clear();
+                            _snack('Memo ditambahkan ✓');
+                          },
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Daftar memo items
+              if (memos.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('📝', style: TextStyle(fontSize: 48)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Belum ada memo',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...memos.map((memo) {
+                  return GestureDetector(
+                    onTap: () => _showEditMemoModal(context, memo),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 22),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF2A2A2A)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  memo.content.length > 40
+                                      ? '${memo.content.substring(0, 40)}...'
+                                      : memo.content,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () async {
+                                  await memoProvider.deleteMemo(memo.id);
+                                  if (mounted) {
+                                    _snack('Memo dihapus');
+                                  }
+                                },
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  size: 14,
+                                  color: AppColors.danger,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _formatMemoDate(memo.updatedAt),
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              const SizedBox(height: 40), // spacer untuk bottom nav
+            ];
+
+            return ListView(
+              controller: sc,
+              children: memoItems,
+            );
+          },
+        ),
+      3 => // Focus Timer
+        Consumer<FocusTimerProvider>(
+          builder: (_, focusProvider, __) {
+            final isActive = focusProvider.currentSession != null;
+
+            if (isActive) {
+              // Active session display
+              final remaining = focusProvider.remainingSeconds;
+              final minutes = remaining ~/ 60;
+              final seconds = remaining % 60;
+              final activity = focusProvider.currentSession!.activity;
+
+              return ListView(
+                controller: sc,
+                padding: const EdgeInsets.fromLTRB(22, 24, 22, 90),
+                children: [
+                  // Timer display
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.1),
+                          AppColors.primary.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('⏱️', style: TextStyle(fontSize: 48)),
+                        const SizedBox(height: 16),
+                        Text(
+                          '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 72,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Sisa waktu fokus',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Activity info
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.success.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.success,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Aktivitas',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: AppColors.success,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                activity,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: AppColors.success,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Control buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await focusProvider.completeSession();
+                            _snack('Focus selesai! Bagus! 🎉');
+                          },
+                          icon: const Icon(Icons.stop_circle),
+                          label: Text(
+                            'Selesai',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.danger,
+                            side: const BorderSide(color: AppColors.danger),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            focusProvider.toggleMusic();
+                            _snack('🎵 Musik produktif aktif');
+                          },
+                          icon: const Icon(Icons.music_note),
+                          label: Text(
+                            'Musik',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Tips
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.blue.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          color: Colors.blue.shade600,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Jangan periksa ponsel, fokus pada aktivitas',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.blue.shade700,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // Idle state (no active session)
+            return ListView(
+              controller: sc,
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 90),
+              children: [
+                const Text('⏱️', style: TextStyle(fontSize: 60)),
+                const SizedBox(height: 20),
+                Text(
+                  'Focus Timer',
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Tingkatkan produktivitas dengan fokus terukur',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // Big button
+                GestureDetector(
+                  onTap: () => _showFocusTimerSetup(context, focusProvider),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.play_circle_filled,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Mulai Focus Sekarang',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Info box
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.info_outline,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Atur durasi 1-120 menit dan musik untuk tetap fokus',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+
+  String _formatMemoDate(DateTime date) {
+    final now = DateTime.now();
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  void _showEditMemoModal(BuildContext context, dynamic memo) {
+    final textCtrl = TextEditingController(text: memo.content);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit Memo',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: textCtrl,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Tulis memo...',
+                  hintStyle: GoogleFonts.poppins(fontSize: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Batal',
+                      style: GoogleFonts.poppins(color: AppColors.textSecondary),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      final memoProvider = context.read<MemoProvider>();
+                      if (textCtrl.text.isNotEmpty) {
+                        memoProvider.updateMemo(
+                          memoId: memo.id,
+                          content: textCtrl.text,
+                        );
+                        Navigator.pop(context);
+                        _snack('Memo diperbarui');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      'Simpan',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFocusTimerSetup(BuildContext context, FocusTimerProvider focusProvider) {
+    int selectedDuration = 10;
+    final activityCtrl = TextEditingController(text: 'Fokus Belajar');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: StatefulBuilder(
+          builder: (context, setState) => Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Setup Focus Timer',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Aktivitas',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: activityCtrl,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Contoh: Baca Buku, Coding',
+                    hintStyle: GoogleFonts.poppins(fontSize: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Durasi: $selectedDuration menit',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Slider(
+                  value: selectedDuration.toDouble(),
+                  min: 1,
+                  max: 120,
+                  divisions: 119,
+                  onChanged: (val) => setState(() => selectedDuration = val.toInt()),
+                  activeColor: AppColors.primary,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final activity = activityCtrl.text.trim();
+                      if (activity.isEmpty) {
+                        _snack('Silakan isi aktivitas terlebih dahulu');
+                        return;
+                      }
+                      focusProvider.startFocusSession(
+                        activity: activity,
+                        durationMinutes: selectedDuration,
+                        category: 'reading',
+                      );
+                      Navigator.pop(context);
+                      _snack('Focus dimulai! 🎯');
+                    },
+                    icon: const Icon(Icons.play_arrow),
+                    label: Text(
+                      'Mulai Focus',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Batal',
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -856,7 +1573,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       confirmDismiss: (dir) async {
         if (dir == DismissDirection.startToEnd) {
           if (done) return false;
-          final ok = await provider.completeHabit(habit.id);
+          final goalProvider = context.read<GoalProvider>();
+          final ok = await provider.completeHabit(habit.id, goalProvider: goalProvider);
           if (mounted) ok ? _showCoin(habit.coins, provider) : _showFraud();
           return false;
         }
@@ -877,7 +1595,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         behavior: HitTestBehavior.opaque,
         onTap: () async {
           if (done) return;
-          final ok = await provider.completeHabit(habit.id);
+          final goalProvider = context.read<GoalProvider>();
+          final ok = await provider.completeHabit(habit.id, goalProvider: goalProvider);
           if (!mounted) return;
           ok ? _showCoin(habit.coins, provider) : _showFraud();
         },
@@ -1107,30 +1826,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             icon: Icons.home_rounded,
             isActive: true,
             badge: 0,
-            onTap: () {
-              _showNavbar();
-            },
+            onTap: () {},
           ),
-          const SizedBox(width: 2),
           _navItem(
             icon: Icons.bar_chart_rounded,
             isActive: false,
             badge: 0,
             onTap: () {
-              _showNavbar();
               Navigator.push(
                 context,
                 AppTransition.slideRight(child: const ReportScreen()),
               );
             },
           ),
-          const SizedBox(width: 2),
           _navItem(
             icon: Icons.shopping_bag_outlined,
             isActive: false,
             badge: 0,
             onTap: () {
-              _showNavbar();
               Navigator.push(
                 context,
                 AppTransition.slideRight(child: const RewardScreen()),
@@ -1138,8 +1851,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             },
           ),
           // Admin tab — hanya tampil jika user adalah admin
-          if (adminProvider.isAdmin) ...[
-            const SizedBox(width: 2),
+          if (adminProvider.isAdmin)
             Builder(
               builder: (ctx) {
                 final rewardProvider = ctx.read<RewardProvider>();
@@ -1149,7 +1861,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   isActive: false,
                   badge: pendingCount,
                   onTap: () {
-                    _showNavbar();
                     Navigator.push(
                       context,
                       AppTransition.slideRight(child: const AdminRewardClaimsScreen()),
@@ -1158,14 +1869,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 );
               },
             ),
-          ],
-          const SizedBox(width: 2),
           _navItem(
             icon: Icons.person_outlined,
             isActive: false,
             badge: 0,
             onTap: () {
-              _showNavbar();
               Navigator.push(
                 context,
                 AppTransition.slideRight(child: const ProfileScreen()),
@@ -1174,28 +1882,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ];
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(36),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(36),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: navItems,
-              ),
-            ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: navItems,
           ),
         );
       },
@@ -1215,26 +1917,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isActive ? AppColors.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(24),
+              color: isActive ? AppColors.primary.withValues(alpha: 0.15) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               icon,
-              color: isActive ? Colors.white : AppColors.navInactive,
-              size: 24,
+              color: isActive ? AppColors.primary : const Color(0xFF6B7280),
+              size: 22,
             ),
           ),
           if (badge > 0)
             Positioned(
-              top: 2,
-              right: 6,
+              top: 0,
+              right: 4,
               child: Container(
-                width: 17,
-                height: 17,
+                width: 18,
+                height: 18,
                 decoration: const BoxDecoration(
-                  color: Colors.red,
+                  color: AppColors.danger,
                   shape: BoxShape.circle,
                 ),
                 child: Center(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/music_service.dart';
 import '../models/focus_session_model.dart';
 
@@ -53,11 +54,12 @@ class FocusTimerProvider extends ChangeNotifier {
     required int durationMinutes,
     required String category,
   }) async {
+    final now = DateTime.now();
     _currentSession = FocusSessionModel(
       id: const Uuid().v4(),
       activity: activity,
       durationSeconds: durationMinutes * 60,
-      startedAt: DateTime.now(),
+      startedAt: now,
       category: category,
     );
 
@@ -68,28 +70,91 @@ class FocusTimerProvider extends ChangeNotifier {
     await _box.put(_currentSession!.id, _currentSession!);
     _sessions.insert(0, _currentSession!);
 
+    // Smart Timer: Simpan start time ke SharedPreferences untuk recovery
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('focus_session_id', _currentSession!.id);
+    await prefs.setString('focus_start_time', now.toIso8601String());
+    await prefs.setInt('focus_duration_seconds', _currentSession!.durationSeconds);
+
     _startCountdown();
     notifyListeners();
   }
 
   void _startCountdown() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        _remainingSeconds--;
-        _currentSession?.elapsedSeconds++;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (_currentSession == null) {
+        timer.cancel();
+        return;
+      }
 
-        // Update Hive setiap 5 detik
-        if (_currentSession != null && _remainingSeconds % 5 == 0) {
-          _box.put(_currentSession!.id, _currentSession!);
-        }
+      // Smart Timer: Hitung elapsed time dari start time yang tersimpan
+      final now = DateTime.now();
+      final elapsedSeconds = now.difference(_currentSession!.startedAt).inSeconds;
+      _remainingSeconds = (_currentSession!.durationSeconds - elapsedSeconds).clamp(0, _currentSession!.durationSeconds);
 
-        notifyListeners();
-      } else {
-        // Timer selesai
-        _completeSession();
+      _currentSession?.elapsedSeconds = elapsedSeconds;
+
+      // Update Hive setiap 5 detik
+      if (_remainingSeconds % 5 == 0) {
+        await _box.put(_currentSession!.id, _currentSession!);
+      }
+
+      notifyListeners();
+
+      // Timer selesai
+      if (_remainingSeconds <= 0) {
+        timer.cancel();
+        await _completeSession();
       }
     });
+  }
+
+  /// Restore session dari background (dipanggil saat app startup)
+  Future<void> restoreSessionIfActive() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sessionId = prefs.getString('focus_session_id');
+
+    if (sessionId == null) {
+      // Tidak ada session aktif
+      return;
+    }
+
+    // Cek apakah session masih valid dan belum selesai
+    final startTimeStr = prefs.getString('focus_start_time');
+    final durationSeconds = prefs.getInt('focus_duration_seconds');
+
+    if (startTimeStr != null && durationSeconds != null) {
+      final startTime = DateTime.parse(startTimeStr);
+      final elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
+
+      if (elapsedSeconds < durationSeconds) {
+        // Session masih berlangsung, restore state
+        debugPrint('[FocusTimer] Restoring session: $sessionId');
+
+        // Load session dari Hive
+        final session = _box.get(sessionId);
+        if (session != null && !session.isCompleted) {
+          _currentSession = session;
+          _currentSession!.elapsedSeconds = elapsedSeconds;
+          _remainingSeconds = (durationSeconds - elapsedSeconds).clamp(0, durationSeconds);
+          _isActive = true;
+
+          _startCountdown();
+          notifyListeners();
+        }
+      } else {
+        // Session sudah selesai
+        await _clearSessionPrefs();
+      }
+    }
+  }
+
+  Future<void> _clearSessionPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('focus_session_id');
+    await prefs.remove('focus_start_time');
+    await prefs.remove('focus_duration_seconds');
   }
 
   /// Pause timer
@@ -124,6 +189,9 @@ class FocusTimerProvider extends ChangeNotifier {
       await _box.put(_currentSession!.id, _currentSession!);
     }
 
+    await _clearSessionPrefs();
+    _currentSession = null;
+    _remainingSeconds = 0;
     notifyListeners();
   }
 
@@ -131,6 +199,7 @@ class FocusTimerProvider extends ChangeNotifier {
   Future<void> cancelSession() async {
     _timer?.cancel();
     _isActive = false;
+    await _clearSessionPrefs();
 
     if (_currentSession != null) {
       await _box.delete(_currentSession!.id);

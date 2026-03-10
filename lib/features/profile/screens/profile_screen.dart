@@ -9,6 +9,7 @@ import '../../../data/providers/user_profile_provider.dart';
 import '../../../data/providers/notification_provider.dart';
 import '../../../data/providers/theme_provider.dart';
 import '../../../data/providers/habit_provider.dart';
+import '../../../data/providers/goal_provider.dart';
 import '../../../data/providers/memo_provider.dart';
 import '../../../data/providers/focus_timer_provider.dart';
 import '../../admin/screens/admin_panel_screen.dart';
@@ -212,6 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () async {
                   final nav = Navigator.of(context);
                   final habitProvider = context.read<HabitProvider>();
+                  final goalProvider = context.read<GoalProvider>();
                   final memoProvider = context.read<MemoProvider>();
                   final focusProvider = context.read<FocusTimerProvider>();
 
@@ -238,6 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                   if (confirm == true && mounted) {
                     await habitProvider.clearUserData();
+                    await goalProvider.clearUserData();
                     await memoProvider.clearUserData();
                     await focusProvider.clearUserData();
                     await authProvider.signOut();

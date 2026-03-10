@@ -288,13 +288,14 @@ class HabitProvider extends ChangeNotifier {
 
   // ── Auto-Habits from Goals ────────────────────────────────────────────────
 
-  /// Generate daily habits otomatis dari goal
+  /// Generate daily habits otomatis dari goal dengan coins scalable berdasarkan durasi
   Future<void> addHabitsFromGoal(
     String goalId,
     String goalTitle,
     String goalDesc,
-    Color goalColor,
-  ) async {
+    Color goalColor, {
+    DateTime? deadline,
+  }) async {
     final combined = '$goalTitle $goalDesc'.toLowerCase();
 
     final templates = <String>[];
@@ -346,11 +347,14 @@ class HabitProvider extends ChangeNotifier {
       ]);
     }
 
+    // Hitung coins per habit berdasarkan durasi goal
+    final habitCoins = _computeHabitCoins(deadline);
+
     for (int i = 0; i < templates.length; i++) {
       final habit = HabitModel(
         id: '${goalId}_${DateTime.now().millisecondsSinceEpoch}_$i',
         title: templates[i],
-        coins: 25,
+        coins: habitCoins,
         colorValue: goalColor.toARGB32(),
         createdAt: DateTime.now(),
         order: _habits.length + i,
@@ -361,6 +365,17 @@ class HabitProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Helper: Hitung coins per habit berdasarkan durasi deadline
+  int _computeHabitCoins(DateTime? deadline) {
+    if (deadline == null) return 25;
+    final days = deadline.difference(DateTime.now()).inDays;
+    if (days > 365) return 60;
+    if (days > 180) return 50;
+    if (days > 90) return 40;
+    if (days > 30) return 30;
+    return 20;
   }
 
   /// Delete all habits yang di-generate dari goal

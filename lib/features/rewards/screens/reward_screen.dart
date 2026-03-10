@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
+import '../../../core/widgets/bottom_navbar_widget.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/auth_provider.dart';
@@ -19,6 +20,38 @@ class RewardScreen extends StatefulWidget {
 }
 
 class _RewardScreenState extends State<RewardScreen> {
+  // ── Helper Methods for Theme-Aware Colors ──────────────────────────────
+
+  Color _getBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF0F0F0F)
+        : AppColors.background;
+  }
+
+  Color _getContainerColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1A1A1A)
+        : Colors.white;
+  }
+
+  Color _getTextPrimaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : AppColors.textPrimary;
+  }
+
+  Color _getTextSecondaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFB0B0B0)
+        : AppColors.textSecondary;
+  }
+
+  Color _getDividerColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF444444)
+        : const Color(0xFFE0E0E0);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +69,7 @@ class _RewardScreenState extends State<RewardScreen> {
         final rewards = rewardProvider.filteredCatalog('semua');
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: _getBackgroundColor(context),
           appBar: _buildAppBar(coins),
           body: Column(
             children: [
@@ -96,6 +129,10 @@ class _RewardScreenState extends State<RewardScreen> {
                   ),
                 )
               : null,
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: BottomNavBar(activeIndex: 2),
+          ),
         );
       },
     );
@@ -153,7 +190,7 @@ class _RewardScreenState extends State<RewardScreen> {
               style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
+                  color: _getTextPrimaryColor(context))),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -185,12 +222,12 @@ class _RewardScreenState extends State<RewardScreen> {
               style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary)),
+                  color: _getTextPrimaryColor(context))),
           const SizedBox(height: 8),
           Text('Reward akan tersedia segera',
               style: GoogleFonts.poppins(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: _getTextSecondaryColor(context),
                   height: 1.5),
               textAlign: TextAlign.center),
         ],
@@ -325,14 +362,14 @@ class _RewardScreenState extends State<RewardScreen> {
             Text(reward.title,
                 style: GoogleFonts.poppins(
                     fontSize: 22, fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+                    color: _getTextPrimaryColor(context))),
             const SizedBox(height: 8),
             // Deskripsi
             Text(
               reward.description,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                  fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+                  fontSize: 13, color: _getTextSecondaryColor(context), height: 1.5),
             ),
             const SizedBox(height: 20),
             // Harga
@@ -362,7 +399,7 @@ class _RewardScreenState extends State<RewardScreen> {
               Text(
                 'Sisa koin setelah tukar: ${habitProvider.totalCoins - reward.price}',
                 style: GoogleFonts.poppins(
-                    fontSize: 12, color: AppColors.textSecondary),
+                    fontSize: 12, color: _getTextSecondaryColor(context)),
               ),
             if (!canAfford)
               Text(
@@ -385,7 +422,7 @@ class _RewardScreenState extends State<RewardScreen> {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.grey[300]!),
+                      side: BorderSide(color: _getDividerColor(context)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
                     ),
@@ -393,7 +430,7 @@ class _RewardScreenState extends State<RewardScreen> {
                         style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary)),
+                            color: _getTextSecondaryColor(context))),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -498,7 +535,7 @@ class _RewardScreenState extends State<RewardScreen> {
             Text('Permintaan Diterima',
                 style: GoogleFonts.poppins(
                     fontSize: 20, fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+                    color: Colors.white)),
             const SizedBox(height: 8),
             Text(
               '${reward.emoji} ${reward.title}\n\nPermintaanmu sudah dikirim ke admin. Notifikasi WhatsApp sudah dikirimkan. Tunggu konfirmasi dari admin segera.',
@@ -561,7 +598,7 @@ class _RewardScreenState extends State<RewardScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: _getDividerColor(context),
                   borderRadius: BorderRadius.circular(2)),
             ),
             Padding(
@@ -571,7 +608,7 @@ class _RewardScreenState extends State<RewardScreen> {
                   Text('Riwayat Penukaran',
                       style: GoogleFonts.poppins(
                           fontSize: 18, fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary)),
+                          color: _getTextPrimaryColor(context))),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -617,7 +654,7 @@ class _RewardScreenState extends State<RewardScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -637,10 +674,10 @@ class _RewardScreenState extends State<RewardScreen> {
                 Text(tx.rewardTitle,
                     style: GoogleFonts.poppins(
                         fontSize: 13, fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary)),
+                        color: _getTextPrimaryColor(context))),
                 Text(dateStr,
                     style: GoogleFonts.poppins(
-                        fontSize: 11, color: AppColors.textSecondary)),
+                        fontSize: 11, color: _getTextSecondaryColor(context))),
               ],
             ),
           ),

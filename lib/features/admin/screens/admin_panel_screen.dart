@@ -304,7 +304,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final ctx = context;
                     final success = await adminProvider.approvePendingRedemption(
                       transactionId: tx.id,
                       rewardProvider: rewardProvider,
@@ -312,7 +311,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     );
                     if (!mounted) return;
                     if (success) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
                             '✅ Approved: ${tx.rewardTitle}',
@@ -322,7 +321,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         ),
                       );
                     } else {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
                             'Gagal approve',

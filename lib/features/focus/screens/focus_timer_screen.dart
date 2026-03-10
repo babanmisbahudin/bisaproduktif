@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/providers/focus_timer_provider.dart';
+import 'focus_history_screen.dart';
 
 class FocusTimerScreen extends StatefulWidget {
   const FocusTimerScreen({super.key});
@@ -15,6 +16,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   late TextEditingController _activityCtrl;
   int _selectedDuration = 10; // Default 10 minutes
   String _selectedCategory = 'reading';
+  bool _enablePomodoro = false; // Pomodoro mode toggle
 
   @override
   void initState() {
@@ -63,8 +65,57 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Focus Statistics Banner ────────────────────────────────────────
+          _buildStatsCard(focusProvider),
+          const SizedBox(height: 24),
+
+          // ── Quick Start Presets ────────────────────────────────────────────
           Text(
-            'Fokus Time Setup',
+            'Quick Start',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildQuickStartButton(15, '⚡ 15 min'),
+              _buildQuickStartButton(25, '🍅 25 min'),
+              _buildQuickStartButton(45, '💪 45 min'),
+              _buildQuickStartButton(60, '🚀 60 min'),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── View History Button ────────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FocusHistoryScreen()),
+                );
+              },
+              icon: const Icon(Icons.history),
+              label: Text(
+                'Lihat History',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          Text(
+            'Setup Custom',
             style: GoogleFonts.poppins(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -101,7 +152,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
 
           // Duration selector
           Text(
-            'Durasi (${_selectedDuration} menit)',
+            'Durasi ($_selectedDuration menit)',
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -142,6 +193,58 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
               _buildCategoryChip('📚 Belajar', 'study'),
             ],
           ),
+          const SizedBox(height: 24),
+
+          // ── Pomodoro Toggle ────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _enablePomodoro ? AppColors.primary.withValues(alpha: 0.1) : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _enablePomodoro ? AppColors.primary : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🍅 Pomodoro Technique',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '25 min fokus + 5 min istirahat',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                Switch(
+                  value: _enablePomodoro,
+                  onChanged: (value) {
+                    setState(() {
+                      _enablePomodoro = value;
+                      if (value) {
+                        _selectedDuration = 25; // Auto-set to 25 min
+                      }
+                    });
+                  },
+                  activeThumbColor: AppColors.primary,
+                  activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 40),
 
           // Start button
@@ -177,14 +280,22 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
     );
   }
 
+  String _formatFocusTime(int totalSeconds) {
+    final h = totalSeconds ~/ 3600;
+    final m = (totalSeconds % 3600) ~/ 60;
+    final s = totalSeconds % 60;
+    if (h > 0) {
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
   Widget _buildActiveTimer(
     BuildContext context,
     FocusTimerProvider focusProvider,
   ) {
     final session = focusProvider.currentSession!;
     final remaining = focusProvider.remainingSeconds;
-    final minutes = remaining ~/ 60;
-    final seconds = remaining % 60;
 
     return Stack(
       children: [
@@ -208,31 +319,68 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
               ),
               const SizedBox(height: 40),
 
-              // Countdown
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.4),
-                      blurRadius: 30,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 64,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+              // Countdown dengan progress ring
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Progress ring background
+                  Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.1),
                     ),
                   ),
-                ),
+
+                  // Animated pulsing countdown
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(seconds: 1),
+                    onEnd: () {
+                      // Loop animation every second
+                    },
+                    builder: (context, value, child) {
+                      return Container(
+                        width: 200 + (value * 10),
+                        height: 200 + (value * 10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.primary,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.5 - (value * 0.2)),
+                              blurRadius: 20 + (value * 10),
+                              spreadRadius: 2 + (value * 3),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _formatFocusTime(remaining),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 64,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                '⏱️ Berjalan',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 60),
 
@@ -375,6 +523,123 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
       },
       backgroundColor: Colors.white,
       selectedColor: AppColors.primary,
+    );
+  }
+
+  /// Stats card dengan streak, today focus time, dll
+  Widget _buildStatsCard(FocusTimerProvider focusProvider) {
+    final streak = focusProvider.getFocusStreak();
+    final todayMinutes = focusProvider.getTodayFocusTime();
+    final weekMinutes = focusProvider.getWeekFocusTime();
+    final avgMinutes = focusProvider.getAverageFocusTime();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary.withValues(alpha: 0.9), AppColors.primaryLight.withValues(alpha: 0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '🔥 Focus Streak',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$streak days',
+            style: GoogleFonts.poppins(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatItem('Hari Ini', '$todayMinutes min', '⏱️'),
+              _buildStatItem('Minggu Ini', '$weekMinutes min', '📊'),
+              _buildStatItem('Rata-rata', '$avgMinutes min', '📈'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Stat item untuk card
+  Widget _buildStatItem(String label, String value, String emoji) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            emoji,
+            style: const TextStyle(fontSize: 20),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Quick start button
+  Widget _buildQuickStartButton(int minutes, String label) {
+    return SizedBox(
+      width: (MediaQuery.of(context).size.width - 60) / 2,
+      child: OutlinedButton(
+        onPressed: () {
+          setState(() => _selectedDuration = minutes);
+          // Auto-focus pada activity field
+          FocusScope.of(context).requestFocus();
+        },
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
     );
   }
 }

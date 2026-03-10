@@ -256,6 +256,7 @@ class GoalsTab extends StatelessWidget {
       },
       child: GoalCard(
         goal: goal,
+        onTap: () => _showGoalDetails(context, provider, goal),
         onLongPress: goal.status == GoalStatus.active
             ? () => _openEditGoal(context, goal)
             : null,
@@ -320,6 +321,168 @@ class GoalsTab extends StatelessWidget {
         );
       }
     }
+  }
+
+  void _showGoalDetails(BuildContext context, GoalProvider provider, GoalModel goal) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: goal.color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.flag_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                goal.title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              goal.targetDescription,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: goal.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.monetization_on, color: Colors.amber, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${goal.coins} Coins',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${goal.currentProgress}%',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: goal.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: goal.progressPercent,
+                minHeight: 8,
+                backgroundColor: Colors.grey[300],
+                valueColor: AlwaysStoppedAnimation(goal.color),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: goal.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    goal.status == GoalStatus.active
+                        ? Icons.flag_rounded
+                        : goal.status == GoalStatus.sentForReview
+                            ? Icons.hourglass_top_rounded
+                            : goal.status == GoalStatus.approved
+                                ? Icons.verified_rounded
+                                : Icons.check_circle_rounded,
+                    color: goal.color,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    goal.statusLabel,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: goal.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Tutup',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
+          ),
+          if (goal.status == GoalStatus.active)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openEditGoal(context, goal);
+              },
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: Text(
+                'Edit',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+          if (goal.status == GoalStatus.active && goal.currentProgress >= goal.targetProgress)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _confirmSendForReview(context, provider, goal);
+              },
+              icon: const Icon(Icons.send_rounded, size: 18),
+              label: Text(
+                'Kirim Review',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: goal.color,
+                foregroundColor: Colors.white,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) {

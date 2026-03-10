@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
+import '../../../core/widgets/bottom_navbar_widget.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/goal_provider.dart';
 
@@ -14,15 +15,53 @@ class ReportScreen extends StatefulWidget {
 }
 
 class _ReportScreenState extends State<ReportScreen> {
+  // ── Helper Methods for Theme-Aware Colors ──────────────────────────────
+
+  Color _getBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF0F0F0F)
+        : AppColors.background;
+  }
+
+  Color _getContainerColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1A1A1A)
+        : Colors.white;
+  }
+
+  Color _getTextPrimaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : AppColors.textPrimary;
+  }
+
+  Color _getTextSecondaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFB0B0B0)
+        : AppColors.textSecondary;
+  }
+
+  Color _getStatBoxColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF333333)
+        : const Color(0xFFF0F0F0);
+  }
+
+  Color _getChartDividerColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF444444)
+        : const Color(0xFFE0E0E0);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<HabitProvider, GoalProvider>(
       builder: (_, habitProvider, goalProvider, _) {
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: _getBackgroundColor(context),
           appBar: _buildAppBar(context),
           body: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 80),
             children: [
               // ── Section 1: 7-Day Chart ─────────────────────────────────────────
               _buildChartSection(context, habitProvider),
@@ -40,6 +79,10 @@ class _ReportScreenState extends State<ReportScreen> {
               _buildCoinSection(context, habitProvider),
               const SizedBox(height: 24),
             ],
+          ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: BottomNavBar(activeIndex: 1),
           ),
         );
       },
@@ -74,7 +117,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -92,7 +135,7 @@ class _ReportScreenState extends State<ReportScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: _getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 16),
@@ -102,6 +145,7 @@ class _ReportScreenState extends State<ReportScreen> {
               painter: WeeklyBarChartPainter(
                 data: weekData,
                 maxValue: maxCount,
+                dividerColor: _getChartDividerColor(context),
               ),
               child: const SizedBox.expand(),
             ),
@@ -120,7 +164,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -138,7 +182,7 @@ class _ReportScreenState extends State<ReportScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: _getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 16),
@@ -161,7 +205,7 @@ class _ReportScreenState extends State<ReportScreen> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: _getStatBoxColor(context),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -173,14 +217,14 @@ class _ReportScreenState extends State<ReportScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+                color: _getTextPrimaryColor(context),
               ),
             ),
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 10,
-                color: AppColors.textSecondary,
+                color: _getTextSecondaryColor(context),
               ),
               textAlign: TextAlign.center,
             ),
@@ -197,7 +241,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -218,7 +262,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: _getTextPrimaryColor(context),
                 ),
               ),
               Container(
@@ -244,7 +288,7 @@ class _ReportScreenState extends State<ReportScreen> {
               'Belum ada goal aktif',
               style: GoogleFonts.poppins(
                 fontSize: 12,
-                color: AppColors.textSecondary,
+                color: _getTextSecondaryColor(context),
               ),
             )
           else
@@ -264,7 +308,7 @@ class _ReportScreenState extends State<ReportScreen> {
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
+                                color: _getTextPrimaryColor(context),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -286,7 +330,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         child: LinearProgressIndicator(
                           value: goal.progressPercent,
                           minHeight: 6,
-                          backgroundColor: Colors.grey[200],
+                          backgroundColor: _getStatBoxColor(context),
                           valueColor: AlwaysStoppedAnimation(goal.color),
                         ),
                       ),
@@ -310,7 +354,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -328,7 +372,7 @@ class _ReportScreenState extends State<ReportScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: _getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 16),
@@ -372,10 +416,12 @@ class _ReportScreenState extends State<ReportScreen> {
 class WeeklyBarChartPainter extends CustomPainter {
   final List<int> data;
   final double maxValue;
+  final Color dividerColor;
 
   WeeklyBarChartPainter({
     required this.data,
     required this.maxValue,
+    this.dividerColor = const Color(0xFF444444),
   });
 
   @override
@@ -396,7 +442,7 @@ class WeeklyBarChartPainter extends CustomPainter {
     canvas.drawLine(
       Offset(padding, padding),
       Offset(padding, size.height - padding),
-      Paint()..color = Colors.grey[300]!,
+      Paint()..color = dividerColor,
     );
 
     // Draw bars
@@ -450,12 +496,14 @@ class WeeklyBarChartPainter extends CustomPainter {
     canvas.drawLine(
       Offset(padding, size.height - padding),
       Offset(size.width - padding, size.height - padding),
-      Paint()..color = Colors.grey[300]!,
+      Paint()..color = dividerColor,
     );
   }
 
   @override
   bool shouldRepaint(WeeklyBarChartPainter oldDelegate) {
-    return oldDelegate.data != data || oldDelegate.maxValue != maxValue;
+    return oldDelegate.data != data ||
+           oldDelegate.maxValue != maxValue ||
+           oldDelegate.dividerColor != dividerColor;
   }
 }

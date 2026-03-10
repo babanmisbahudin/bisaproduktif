@@ -536,7 +536,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _habitCategories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (ctx, i) {
               final cat = _habitCategories[i];
               final isSelected = _selectedCategoryIndex == i;

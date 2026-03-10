@@ -18,6 +18,7 @@ class FocusTimerProvider extends ChangeNotifier {
   Timer? _timer;
   bool _isActive = false;
   int _remainingSeconds = 0;
+  int _lastRewardCoins = 0; // Last earned coins
 
   // Music state
   bool _isMusicEnabled = true;
@@ -31,6 +32,7 @@ class FocusTimerProvider extends ChangeNotifier {
   int get totalSessions => _sessions.length;
   int get completedSessions => _sessions.where((s) => s.isCompleted).length;
   bool get isMusicEnabled => _isMusicEnabled;
+  int get lastRewardCoins => _lastRewardCoins;
 
   // ── Init ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +84,7 @@ class FocusTimerProvider extends ChangeNotifier {
 
   void _startCountdown() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_currentSession == null) {
         timer.cancel();
         return;
@@ -95,9 +97,9 @@ class FocusTimerProvider extends ChangeNotifier {
 
       _currentSession?.elapsedSeconds = elapsedSeconds;
 
-      // Update Hive setiap 5 detik
+      // Update Hive setiap 5 detik (non-blocking)
       if (_remainingSeconds % 5 == 0) {
-        await _box.put(_currentSession!.id, _currentSession!);
+        _box.put(_currentSession!.id, _currentSession!);
       }
 
       notifyListeners();
@@ -105,9 +107,32 @@ class FocusTimerProvider extends ChangeNotifier {
       // Timer selesai
       if (_remainingSeconds <= 0) {
         timer.cancel();
-        await _completeSession();
+        _completeSessionSync();
       }
     });
+  }
+
+  /// Synchronous version untuk timer callback (async ops happen in background)
+  /// Returns reward coins earned
+  int _completeSessionSync() {
+    _isActive = false;
+    int reward = 0;
+
+    if (_currentSession != null) {
+      _currentSession!.isCompleted = true;
+      _currentSession!.completedAt = DateTime.now();
+
+      // Calculate reward coins
+      reward = calculateFocusReward(_currentSession!);
+      _lastRewardCoins = reward;
+
+      _box.put(_currentSession!.id, _currentSession!);
+    }
+    _clearSessionPrefsSync();
+    _currentSession = null;
+    _remainingSeconds = 0;
+    notifyListeners();
+    return reward;
   }
 
   /// Restore session dari background (dipanggil saat app startup)
@@ -157,6 +182,15 @@ class FocusTimerProvider extends ChangeNotifier {
     await prefs.remove('focus_duration_seconds');
   }
 
+  /// Synchronous version for timer callback (prefs update happens in background)
+  void _clearSessionPrefsSync() {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('focus_session_id');
+      prefs.remove('focus_start_time');
+      prefs.remove('focus_duration_seconds');
+    });
+  }
+
   /// Pause timer
   void pauseTimer() {
     _isActive = false;
@@ -173,18 +207,24 @@ class FocusTimerProvider extends ChangeNotifier {
     }
   }
 
-  /// Stop dan complete session
-  Future<void> completeSession() async {
-    await _completeSession();
+  /// Stop dan complete session, return reward coins
+  Future<int> completeSession() async {
+    final reward = await _completeSession();
+    return reward;
   }
 
-  Future<void> _completeSession() async {
+  Future<int> _completeSession() async {
     _timer?.cancel();
     _isActive = false;
+    int reward = 0;
 
     if (_currentSession != null) {
       _currentSession!.isCompleted = true;
       _currentSession!.completedAt = DateTime.now();
+
+      // Calculate reward coins
+      reward = calculateFocusReward(_currentSession!);
+      _lastRewardCoins = reward;
 
       await _box.put(_currentSession!.id, _currentSession!);
     }
@@ -193,6 +233,7 @@ class FocusTimerProvider extends ChangeNotifier {
     _currentSession = null;
     _remainingSeconds = 0;
     notifyListeners();
+    return reward;
   }
 
   /// Cancel timer
@@ -238,6 +279,114 @@ class FocusTimerProvider extends ChangeNotifier {
     });
 
     return monthSessions.fold(0, (sum, s) => sum + s.durationSeconds) ~/ 60;
+  }
+
+  /// Total fokus time minggu ini (7 hari terakhir)
+  int getWeekFocusTime() {
+    final today = DateTime.now();
+    final sevenDaysAgo = today.subtract(const Duration(days: 7));
+    final weekSessions = _sessions.where((s) {
+      return s.isCompleted && s.startedAt.isAfter(sevenDaysAgo);
+    });
+
+    return weekSessions.fold(0, (sum, s) => sum + s.durationSeconds) ~/ 60;
+  }
+
+  /// Hitung fokus streak (consecutive days dengan minimal 1 session completed)
+  int getFocusStreak() {
+    if (_sessions.isEmpty) return 0;
+
+    // Get unique days dengan completed sessions
+    final completedDays = <DateTime>{};
+    for (final session in _sessions) {
+      if (session.isCompleted) {
+        completedDays.add(DateTime(
+          session.startedAt.year,
+          session.startedAt.month,
+          session.startedAt.day,
+        ));
+      }
+    }
+
+    if (completedDays.isEmpty) return 0;
+
+    // Sort days descending
+    final sortedDays = completedDays.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    // Hitung streak dari hari ini mundur
+    int streak = 0;
+    DateTime currentDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
+    for (final day in sortedDays) {
+      if (day.isAtSameMomentAs(currentDate) || day.isAfter(currentDate)) {
+        // Skip future dates
+        continue;
+      }
+
+      // Cek gap
+      final expectedDate = currentDate.subtract(Duration(days: streak));
+      if (day.isAtSameMomentAs(expectedDate)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    // Jika ada session hari ini, include in streak
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    if (completedDays.contains(today) && streak == 0) {
+      streak = 1;
+    }
+
+    return streak;
+  }
+
+  /// Get completed focus sessions dengan filter & sorting
+  List<FocusSessionModel> getCompletedSessions({int limit = 20}) {
+    final completed = _sessions
+        .where((s) => s.isCompleted)
+        .toList()
+      ..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
+    return completed.take(limit).toList();
+  }
+
+  /// Get average focus duration (minutes)
+  int getAverageFocusTime() {
+    if (_sessions.isEmpty) return 0;
+    final completed = _sessions.where((s) => s.isCompleted).toList();
+    if (completed.isEmpty) return 0;
+    final totalSeconds = completed.fold(0, (sum, s) => sum + s.durationSeconds);
+    return (totalSeconds / completed.length).round() ~/ 60;
+  }
+
+  /// Hitung reward coin untuk focus session
+  int calculateFocusReward(FocusSessionModel session) {
+    // Base: 1 coin per menit
+    final durationMinutes = session.durationSeconds ~/ 60;
+    int coins = durationMinutes;
+
+    // Bonus untuk sesi panjang (>30 min)
+    if (durationMinutes > 30) {
+      coins = (coins * 1.5).toInt();
+    }
+
+    // Bonus Pomodoro
+    if (session.isPomodoro) {
+      coins = (coins * 1.25).toInt(); // 25% bonus
+    }
+
+    // Bonus kategori
+    final categoryBonus = switch (session.category) {
+      'prayer' => 1.3, // Ibadah: 30% bonus
+      'study' => 1.2, // Belajar: 20% bonus
+      'work' => 1.1, // Kerja: 10% bonus
+      _ => 1.0,
+    };
+    coins = (coins * categoryBonus).toInt();
+
+    // Minimal 5 coins
+    return coins.clamp(5, 500);
   }
 
   // ── Clear Data ──────────────────────────────────────────────────────────────

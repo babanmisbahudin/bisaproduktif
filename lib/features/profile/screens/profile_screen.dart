@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
+import '../../../core/widgets/bottom_navbar_widget.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
@@ -23,6 +24,32 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // ── Helper Methods for Theme-Aware Colors ──────────────────────────────
+
+  Color _getBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF0F0F0F)
+        : AppColors.background;
+  }
+
+  Color _getContainerColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1A1A1A)
+        : Colors.white;
+  }
+
+  Color _getTextPrimaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : AppColors.textPrimary;
+  }
+
+  Color _getTextSecondaryColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFB0B0B0)
+        : AppColors.textSecondary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -30,9 +57,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profileProvider = context.watch<UserProfileProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _getBackgroundColor(context),
       appBar: _buildAppBar(),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 80),
         children: [
           // ── Profile Section ────────────────────────────────────────────────
           _buildProfileInfoCard(profileProvider),
@@ -74,14 +102,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: AppColors.textPrimary,
+                    color: _getTextPrimaryColor(context),
                   ),
                 ),
                 subtitle: Text(
                   '${notifProvider.activeCount} notifikasi aktif',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: _getTextSecondaryColor(context),
                   ),
                 ),
                 trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
@@ -112,14 +140,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: AppColors.textPrimary,
+                    color: _getTextPrimaryColor(context),
                   ),
                 ),
                 subtitle: Text(
                   themeProvider.isDarkMode ? 'Mode Gelap' : 'Mode Terang',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: _getTextSecondaryColor(context),
                   ),
                 ),
                 trailing: Switch(
@@ -175,7 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: context.fontSize(14),
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: _getTextPrimaryColor(context),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -211,7 +239,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  final nav = Navigator.of(context);
                   final habitProvider = context.read<HabitProvider>();
                   final goalProvider = context.read<GoalProvider>();
                   final memoProvider = context.read<MemoProvider>();
@@ -243,8 +270,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     await goalProvider.clearUserData();
                     await memoProvider.clearUserData();
                     await focusProvider.clearUserData();
+                    // signOut() akan trigger onLogoutNavigate callback dari HomeScreen
                     await authProvider.signOut();
-                    if (mounted) nav.pop();
+                    // Jangan call nav.pop() — callback akan handle navigation
                   }
                 },
                 style: OutlinedButton.styleFrom(
@@ -266,6 +294,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 24),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: BottomNavBar(activeIndex: 3),
       ),
     );
   }
@@ -308,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -329,7 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label,
                 style: GoogleFonts.poppins(
                   fontSize: 11,
-                  color: AppColors.textSecondary,
+                  color: _getTextSecondaryColor(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -338,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: _getTextPrimaryColor(context),
                 ),
               ),
             ],
@@ -353,7 +385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -371,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: _getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 16),
@@ -414,7 +446,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label,
                 style: GoogleFonts.poppins(
                   fontSize: 11,
-                  color: AppColors.textSecondary,
+                  color: _getTextSecondaryColor(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -423,7 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: _getTextPrimaryColor(context),
                 ),
               ),
             ],
@@ -456,7 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: _getTextPrimaryColor(context),
                 ),
               ),
               const SizedBox(height: 8),
@@ -477,7 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: _getTextPrimaryColor(context),
                 ),
               ),
               const SizedBox(height: 8),
@@ -499,7 +531,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: _getTextPrimaryColor(context),
                 ),
               ),
               const SizedBox(height: 8),

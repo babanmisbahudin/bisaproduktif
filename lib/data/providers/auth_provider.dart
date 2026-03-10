@@ -14,6 +14,7 @@ class AuthProvider extends ChangeNotifier {
   User? _user;
   bool _isLoading = false;
   String? _error;
+  VoidCallback? onLogoutNavigate; // callback untuk navigate ke splash setelah logout
 
   User? get user => _user;
   bool get isLoggedIn => _user != null;
@@ -104,6 +105,9 @@ class AuthProvider extends ChangeNotifier {
 
     _user = null;
     notifyListeners();
+
+    // Trigger navigation callback setelah logout selesai
+    onLogoutNavigate?.call();
   }
 
   /// Setelah signInWithGoogle() berhasil, panggil method ini untuk setup admin & auto-populate profile

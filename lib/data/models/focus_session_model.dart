@@ -9,6 +9,8 @@ class FocusSessionModel {
   DateTime? completedAt;
   bool isCompleted;
   String category; // "reading", "prayer", "work", "study"
+  bool isPomodoro; // true jika Pomodoro session
+  int pomodoroCount; // Berapa siklus Pomodoro sudah selesai
 
   FocusSessionModel({
     required this.id,
@@ -19,6 +21,8 @@ class FocusSessionModel {
     this.completedAt,
     this.isCompleted = false,
     required this.category,
+    this.isPomodoro = false,
+    this.pomodoroCount = 0,
   });
 }
 
@@ -37,6 +41,8 @@ class FocusSessionModelAdapter extends TypeAdapter<FocusSessionModel> {
       completedAt: reader.readString().isEmpty ? null : DateTime.parse(reader.readString()),
       isCompleted: reader.readBool(),
       category: reader.readString(),
+      isPomodoro: reader.readBool(),
+      pomodoroCount: reader.readInt(),
     );
   }
 
@@ -50,5 +56,7 @@ class FocusSessionModelAdapter extends TypeAdapter<FocusSessionModel> {
     writer.writeString(obj.completedAt?.toIso8601String() ?? '');
     writer.writeBool(obj.isCompleted);
     writer.writeString(obj.category);
+    writer.writeBool(obj.isPomodoro);
+    writer.writeInt(obj.pomodoroCount);
   }
 }

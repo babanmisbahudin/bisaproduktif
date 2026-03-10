@@ -128,13 +128,25 @@ class GoalCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${(goal.progressPercent * 100).toInt()}% selesai',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.85),
+                      if (goal.deadline != null)
+                        // Time-based progress: tampilkan hari selesai / total hari
+                        Text(
+                          '✅ ${goal.completedDays} hari selesai / ${goal.totalExpectedDays} hari',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        )
+                      else
+                        // No deadline: tampilkan persentase biasa
+                        Text(
+                          '${(goal.progressPercent * 100).toInt()}% selesai',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
                         ),
-                      ),
                       if (goal.deadline != null)
                         Text(
                           'Deadline: ${goal.deadline!.day}/${goal.deadline!.month}/${goal.deadline!.year}',

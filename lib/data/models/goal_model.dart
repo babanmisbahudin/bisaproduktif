@@ -17,6 +17,8 @@ class GoalModel {
   int order;
   String reviewNotes; // catatan dari review (jika ada)
   int? durationMonths; // optional: durasi goal dalam bulan (1, 3, 6) untuk bonus koin
+  int completedDays; // jumlah hari user selesaikan semua habits untuk goal ini
+  String lastSyncDate; // tanggal terakhir completedDays di-increment (cegah double-count)
 
   GoalModel({
     required this.id,
@@ -32,9 +34,17 @@ class GoalModel {
     required this.order,
     this.reviewNotes = '',
     this.durationMonths,
+    this.completedDays = 0,
+    this.lastSyncDate = '',
   });
 
   Color get color => Color(colorValue);
+
+  /// Total hari yang diharapkan dari createdAt ke deadline
+  int get totalExpectedDays {
+    if (deadline == null) return 0;
+    return deadline!.difference(createdAt).inDays.clamp(1, 99999);
+  }
 
   double get progressPercent =>
       targetProgress > 0 ? (currentProgress / targetProgress).clamp(0.0, 1.0) : 0.0;
@@ -86,13 +96,15 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
       order: fields[10] as int? ?? 0,
       reviewNotes: fields[11] as String? ?? '',
       durationMonths: fields[12] as int?,
+      completedDays: fields[13] as int? ?? 0,
+      lastSyncDate: fields[14] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, GoalModel obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -118,6 +130,10 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
       ..writeByte(11)
       ..write(obj.reviewNotes)
       ..writeByte(12)
-      ..write(obj.durationMonths);
+      ..write(obj.durationMonths)
+      ..writeByte(13)
+      ..write(obj.completedDays)
+      ..writeByte(14)
+      ..write(obj.lastSyncDate);
   }
 }

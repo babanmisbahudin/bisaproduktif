@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -16,15 +15,10 @@ import '../../../data/providers/goal_provider.dart';
 import '../../habits/screens/add_habit_screen.dart';
 import '../../goals/screens/add_goal_screen.dart';
 import '../../goals/widgets/goals_tab.dart';
-import '../../rewards/screens/reward_screen.dart';
-import '../../report/screens/report_screen.dart';
-import '../../profile/screens/profile_screen.dart';
 import '../../../data/providers/notification_provider.dart';
-import '../../../data/providers/admin_provider.dart';
-import '../../../data/providers/reward_provider.dart';
 import '../../../data/providers/memo_provider.dart';
 import '../../../data/providers/focus_timer_provider.dart';
-import '../../admin/screens/admin_reward_claims_screen.dart';
+import '../../../core/widgets/bottom_navbar_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _userName = '';
   int _selectedTab = 0;
   weather.WeatherData? _weatherData;
+  bool _isRefreshing = false;
 
   late AnimationController _handlePulseCtrl;
   late Animation<double> _handlePulseAnim;
@@ -60,6 +55,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     context.read<HabitProvider>().recordAppOpen();
     _fetchWeather();
     _checkShowTour();
+
+    // Register logout callback untuk navigate ke splash
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<auth_prov.AuthProvider>();
+      authProvider.onLogoutNavigate = () async {
+        if (mounted) {
+          // Clear user name dari SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('user_name');
+          // Navigate ke splash screen dan remove semua routes di stack
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/splash',
+              (route) => false,
+            );
+          }
+        }
+      };
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -73,6 +87,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _fetchWeather() async {
     final w = await weather.WeatherService.fetch();
     if (mounted) setState(() => _weatherData = w);
+  }
+
+  Future<void> _handleRefresh() async {
+    setState(() => _isRefreshing = true);
+    await _fetchWeather();
+    if (mounted) setState(() => _isRefreshing = false);
   }
 
   Future<void> _checkShowTour() async {
@@ -282,8 +302,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Consumer<HabitProvider>(
       builder: (_, habitProvider, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Scaffold(
-          backgroundColor: const Color(0xFF020912),
+          backgroundColor: isDark ? const Color(0xFF0F0F0F) : AppColors.background,
           body: Column(
             children: [
               // ── Main content area (Stack with background + sheet) ──────────
@@ -334,13 +355,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               // ── Fixed bottom navbar ──────────────────────────────────────
               SafeArea(
                 top: false,
-                child: Container(
-                  color: const Color(0xFF020912),
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                  child: Center(
-                    child: _buildNav(),
-                  ),
-                ),
+                child: BottomNavBar(activeIndex: 0),
               ),
             ],
           ),
@@ -628,28 +643,64 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                GestureDetector(
-                  onTap: _selectedTab == 0 ? _openAddHabit : _openAddGoal,
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.38),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                Row(
+                  children: [
+                    // Tombol refresh
+                    GestureDetector(
+                      onTap: _isRefreshing ? null : _handleRefresh,
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                      ],
+                        child: Center(
+                          child: _isRefreshing
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppColors.primary,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.refresh_rounded,
+                                  color: AppColors.primary,
+                                  size: 22,
+                                ),
+                        ),
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.add_rounded,
-                      color: Colors.white,
-                      size: 24,
+                    const SizedBox(width: 10),
+                    // Tombol add
+                    GestureDetector(
+                      onTap: _selectedTab == 0 ? _openAddHabit : _openAddGoal,
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.38),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -730,6 +781,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ? ListView(
                 controller: sc,
                 padding: const EdgeInsets.fromLTRB(22, 12, 22, 90),
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: _buildHabitCards(habitProvider),
               )
             : const Center(child: CircularProgressIndicator())),
@@ -740,11 +792,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       2 => // Memo
         Consumer<MemoProvider>(
-          builder: (_, memoProvider, __) {
-            final memos = memoProvider.memos;
-            final memoInputCtrl = TextEditingController();
+            builder: (_, memoProvider, _) {
+              final memos = memoProvider.memos;
+              final memoInputCtrl = TextEditingController();
 
-            final memoItems = [
+              final memoItems = [
               // Input field untuk memo baru (item 0)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
@@ -933,31 +985,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   );
                 }),
-              const SizedBox(height: 40), // spacer untuk bottom nav
+              const SizedBox(height: 80), // spacer untuk bottom nav
             ];
-
-            return ListView(
-              controller: sc,
-              children: memoItems,
-            );
-          },
-        ),
-      3 => // Focus Timer
-        Consumer<FocusTimerProvider>(
-          builder: (_, focusProvider, __) {
-            final isActive = focusProvider.currentSession != null;
-
-            if (isActive) {
-              // Active session display
-              final remaining = focusProvider.remainingSeconds;
-              final minutes = remaining ~/ 60;
-              final seconds = remaining % 60;
-              final activity = focusProvider.currentSession!.activity;
 
               return ListView(
                 controller: sc,
-                padding: const EdgeInsets.fromLTRB(22, 24, 22, 90),
-                children: [
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: memoItems,
+              );
+            },
+          ),
+      3 => // Focus Timer
+        Consumer<FocusTimerProvider>(
+            builder: (_, focusProvider, _) {
+              final isActive = focusProvider.currentSession != null;
+
+              if (isActive) {
+                // Active session display
+                final remaining = focusProvider.remainingSeconds;
+                final activity = focusProvider.currentSession!.activity;
+
+                return ListView(
+                  controller: sc,
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 90),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
                   // Timer display
                   Container(
                     padding: const EdgeInsets.all(32),
@@ -978,7 +1030,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         const Text('⏱️', style: TextStyle(fontSize: 48)),
                         const SizedBox(height: 16),
                         Text(
-                          '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+                          _formatFocusTime(remaining),
                           style: GoogleFonts.poppins(
                             fontSize: 72,
                             fontWeight: FontWeight.w800,
@@ -1049,8 +1101,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            await focusProvider.completeSession();
-                            _snack('Focus selesai! Bagus! 🎉');
+                            final coins = await focusProvider.completeSession();
+                            if (mounted && coins > 0) {
+                              await context.read<HabitProvider>().addCoins(coins);
+                              _snack('Focus selesai! +$coins koin 🎉');
+                            } else {
+                              _snack('Focus selesai! Bagus! 🎉');
+                            }
                           },
                           icon: const Icon(Icons.stop_circle),
                           label: Text(
@@ -1233,10 +1290,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ],
             );
-          },
-        ),
+            },
+          ),
       _ => const SizedBox.shrink(),
     };
+  }
+
+  String _formatFocusTime(int totalSeconds) {
+    final h = totalSeconds ~/ 3600;
+    final m = (totalSeconds % 3600) ~/ 60;
+    final s = totalSeconds % 60;
+    if (h > 0) {
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   String _formatMemoDate(DateTime date) {
@@ -1593,13 +1660,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () async {
-          if (done) return;
-          final goalProvider = context.read<GoalProvider>();
-          final ok = await provider.completeHabit(habit.id, goalProvider: goalProvider);
-          if (!mounted) return;
-          ok ? _showCoin(habit.coins, provider) : _showFraud();
-        },
+        onTap: () => _showHabitDetails(context, provider, habit),
         onLongPress: () => _openEditHabit(habit),
         child: Stack(
           children: [
@@ -1817,140 +1878,166 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ── Bottom nav ────────────────────────────────────────────────────────────
-  Widget _buildNav() {
-    return Consumer<AdminProvider>(
-      builder: (context, adminProvider, _) {
-        final navItems = <Widget>[
-          _navItem(
-            icon: Icons.home_rounded,
-            isActive: true,
-            badge: 0,
-            onTap: () {},
-          ),
-          _navItem(
-            icon: Icons.bar_chart_rounded,
-            isActive: false,
-            badge: 0,
-            onTap: () {
-              Navigator.push(
-                context,
-                AppTransition.slideRight(child: const ReportScreen()),
-              );
-            },
-          ),
-          _navItem(
-            icon: Icons.shopping_bag_outlined,
-            isActive: false,
-            badge: 0,
-            onTap: () {
-              Navigator.push(
-                context,
-                AppTransition.slideRight(child: const RewardScreen()),
-              );
-            },
-          ),
-          // Admin tab — hanya tampil jika user adalah admin
-          if (adminProvider.isAdmin)
-            Builder(
-              builder: (ctx) {
-                final rewardProvider = ctx.read<RewardProvider>();
-                final pendingCount = adminProvider.getPendingCount(rewardProvider);
-                return _navItem(
-                  icon: Icons.admin_panel_settings,
-                  isActive: false,
-                  badge: pendingCount,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      AppTransition.slideRight(child: const AdminRewardClaimsScreen()),
-                    );
-                  },
-                );
-              },
-            ),
-          _navItem(
-            icon: Icons.person_outlined,
-            isActive: false,
-            badge: 0,
-            onTap: () {
-              Navigator.push(
-                context,
-                AppTransition.slideRight(child: const ProfileScreen()),
-              );
-            },
-          ),
-        ];
+  void _showHabitDetails(BuildContext context, HabitProvider provider, HabitModel habit) {
+    final done = habit.isCompletedOnDate;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 16,
-                offset: const Offset(0, -4),
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: habit.color,
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: navItems,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _navItem({
-    required IconData icon,
-    required bool isActive,
-    required int badge,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.primary.withValues(alpha: 0.15) : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
+              child: Icon(
+                done ? Icons.check_rounded : Icons.radio_button_unchecked,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
-            child: Icon(
-              icon,
-              color: isActive ? AppColors.primary : const Color(0xFF6B7280),
-              size: 22,
-            ),
-          ),
-          if (badge > 0)
-            Positioned(
-              top: 0,
-              right: 4,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: const BoxDecoration(
-                  color: AppColors.danger,
-                  shape: BoxShape.circle,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                habit.title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
                 ),
-                child: Center(
-                  child: Text(
-                    '$badge',
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: habit.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.monetization_on, color: Colors.amber, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${habit.coins} COS coins',
                     style: GoogleFonts.poppins(
-                      fontSize: 9,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
-                ),
+                ],
               ),
             ),
+            const SizedBox(height: 12),
+            if (habit.streak > 0) ...[
+              Row(
+                children: [
+                  const Text('🔥', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${habit.streak} hari berturut-turut',
+                    style: GoogleFonts.poppins(fontSize: 13),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (done)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Sudah diselesaikan hari ini',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          if (!done)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Batal',
+                style: GoogleFonts.poppins(color: AppColors.textSecondary),
+              ),
+            ),
+          if (!done)
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final goalProvider = context.read<GoalProvider>();
+                final ok = await provider.completeHabit(habit.id, goalProvider: goalProvider);
+                if (mounted) {
+                  ok ? _showCoin(habit.coins, provider) : _showFraud();
+                }
+              },
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: Text(
+                'Ceklis',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: habit.color,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          if (!done)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openEditHabit(habit);
+              },
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: Text(
+                'Edit',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final confirm = await _confirmDelete(
+                context,
+                title: 'Hapus Habit?',
+                content: '"${habit.title}" akan dihapus permanen.',
+              );
+              if (confirm == true && mounted) {
+                provider.deleteHabit(habit.id);
+                _snack('Habit dihapus');
+              }
+            },
+            icon: const Icon(Icons.delete_rounded, size: 18),
+            label: Text(
+              'Hapus',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.danger),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.danger),
+            ),
+          ),
         ],
       ),
     );
@@ -2008,8 +2095,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    if (!mounted) return;
+                    // Clear semua provider data sebelum logout
+                    final habitProv = context.read<HabitProvider>();
+                    final goalProv = context.read<GoalProvider>();
+                    final memoProv = context.read<MemoProvider>();
+                    final focusProv = context.read<FocusTimerProvider>();
+
+                    Navigator.pop(context); // tutup sheet dulu
+
+                    // Lalu clear dan logout
+                    await habitProv.clearUserData();
+                    await goalProv.clearUserData();
+                    await memoProv.clearUserData();
+                    await focusProv.clearUserData();
+                    // signOut() akan trigger onLogoutNavigate callback
                     await authProv.signOut();
-                    if (mounted) Navigator.pop(context);
                   },
                   icon: const Icon(Icons.logout, size: 18),
                   label: Text(

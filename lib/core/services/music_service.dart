@@ -37,11 +37,8 @@ class MusicService {
       // 1. Use youtube_explode to extract audio URL
       // 2. Or host audio files separately
       // 3. Or use embedded audio assets
-
-      // This is a placeholder - actual YouTube audio extraction requires additional packages
-      print('[MusicService] Focus music preparation - requires youtube_explode setup');
     } catch (e) {
-      print('[MusicService] Error playing music: $e');
+      // Silently handle music playback errors
     }
   }
 

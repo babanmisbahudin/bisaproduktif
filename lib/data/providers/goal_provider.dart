@@ -116,6 +116,7 @@ class GoalProvider extends ChangeNotifier {
         title,
         targetDescription,
         color,
+        deadline: deadline,
       );
     }
 
@@ -161,7 +162,8 @@ class GoalProvider extends ChangeNotifier {
   // ── Progress ──────────────────────────────────────────────────────────────
 
   /// Sync goal progress dari habits yang sudah diselesaikan hari ini
-  /// Digunakan untuk auto-update progress saat user menyelesaikan daily habit
+  /// Jika goal punya deadline: progress berbasis jumlah hari selesai
+  /// Jika tidak ada deadline: progress dari percentage habit completion
   Future<void> syncProgressFromHabits(String goalId, List<dynamic> allHabits) async {
     final goal = _box.get(goalId);
     if (goal == null || goal.status != GoalStatus.active) return;
@@ -171,14 +173,33 @@ class GoalProvider extends ChangeNotifier {
         allHabits.where((h) => h.goalId == goalId).toList();
     if (goalsHabits.isEmpty) return;
 
-    final completedHabits = goalsHabits
-        .where((h) => h.isCompletedOnDate == true)
-        .length;
+    if (goal.deadline != null) {
+      // Mode time-based: progress dari jumlah hari yang diselesaikan
+      final allDoneToday = goalsHabits.every((h) => h.isCompletedOnDate == true);
 
-    // Hitung progress: (completed / total) * 100
-    final newProgress =
-        ((completedHabits / goalsHabits.length) * 100).round();
-    goal.currentProgress = newProgress.clamp(0, goal.targetProgress);
+      // Cek apakah hari ini sudah dihitung (simpan lastSyncDate untuk cegah double-count)
+      final today = DateTime.now();
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      if (allDoneToday && goal.lastSyncDate != todayStr) {
+        goal.completedDays = (goal.completedDays + 1).clamp(0, goal.totalExpectedDays);
+        goal.lastSyncDate = todayStr; // track sudah dihitung hari ini
+      }
+
+      final newProgress = goal.totalExpectedDays > 0
+          ? ((goal.completedDays / goal.totalExpectedDays) * 100).round()
+          : 0;
+      goal.currentProgress = newProgress.clamp(0, 100);
+    } else {
+      // Mode lama: progress dari percentage completion habit hari ini
+      final completedHabits = goalsHabits
+          .where((h) => h.isCompletedOnDate == true)
+          .length;
+
+      final newProgress =
+          ((completedHabits / goalsHabits.length) * 100).round();
+      goal.currentProgress = newProgress.clamp(0, 100);
+    }
 
     await _box.put(goal.id, goal);
     _loadGoals();
@@ -198,7 +219,7 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Simulasi AI/admin review: approve goal → beri reward koin
+  /// Simulasi AI/admin review: approve goal → beri reward koin scalable
   /// Mengembalikan jumlah koin yang diberikan
   Future<int> approveGoal(String id) async {
     final goal = _box.get(id);
@@ -207,14 +228,17 @@ class GoalProvider extends ChangeNotifier {
     goal.reviewNotes = 'Goal diverifikasi dan disetujui!';
     await _box.put(goal.id, goal);
 
+    // Hitung reward berdasarkan durasi goal
+    final reward = _computeGoalReward(goal);
+
     // Simpan koin ke SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final currentCoins = prefs.getInt('user_coins') ?? 0;
-    await prefs.setInt('user_coins', currentCoins + goal.coins);
+    await prefs.setInt('user_coins', currentCoins + reward);
 
     _loadGoals();
     notifyListeners();
-    return goal.coins;
+    return reward;
   }
 
   /// Reject goal (kirim kembali ke active)
@@ -227,6 +251,17 @@ class GoalProvider extends ChangeNotifier {
     await _box.put(goal.id, goal);
     _loadGoals();
     notifyListeners();
+  }
+
+  // ── Helper: Compute reward coins berdasarkan durasi goal ──────────────────
+  int _computeGoalReward(GoalModel goal) {
+    if (goal.deadline == null) return goal.coins;
+    final days = goal.deadline!.difference(goal.createdAt).inDays;
+    if (days > 365) return 6000;
+    if (days > 180) return 3000;
+    if (days > 90) return 1500;
+    if (days > 30) return 700;
+    return 300;
   }
 
 }

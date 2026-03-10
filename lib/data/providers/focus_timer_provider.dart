@@ -56,6 +56,8 @@ class FocusTimerProvider extends ChangeNotifier {
     required int durationMinutes,
     required String category,
   }) async {
+    debugPrint('[FocusTimer] Starting session: $activity ($durationMinutes min)');
+
     final now = DateTime.now();
     _currentSession = FocusSessionModel(
       id: const Uuid().v4(),
@@ -67,6 +69,8 @@ class FocusTimerProvider extends ChangeNotifier {
 
     _remainingSeconds = _currentSession!.durationSeconds;
     _isActive = true;
+
+    debugPrint('[FocusTimer] Session created - duration: $_remainingSeconds secs, isActive: $_isActive');
 
     // Save session ke Hive
     await _box.put(_currentSession!.id, _currentSession!);
@@ -80,12 +84,17 @@ class FocusTimerProvider extends ChangeNotifier {
 
     _startCountdown();
     notifyListeners();
+
+    debugPrint('[FocusTimer] Countdown started, notifyListeners called');
   }
 
   void _startCountdown() {
     _timer?.cancel();
+    debugPrint('[FocusTimer] _startCountdown() called, starting timer.periodic');
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_currentSession == null) {
+        debugPrint('[FocusTimer] ERROR: _currentSession is null, canceling timer');
         timer.cancel();
         return;
       }
@@ -93,12 +102,14 @@ class FocusTimerProvider extends ChangeNotifier {
       // Smart Timer: Hitung elapsed time dari start time yang tersimpan
       final now = DateTime.now();
       final elapsedSeconds = now.difference(_currentSession!.startedAt).inSeconds;
+      final prevRemaining = _remainingSeconds;
       _remainingSeconds = (_currentSession!.durationSeconds - elapsedSeconds).clamp(0, _currentSession!.durationSeconds);
 
       _currentSession?.elapsedSeconds = elapsedSeconds;
 
-      // Update Hive setiap 5 detik (non-blocking)
-      if (_remainingSeconds % 5 == 0) {
+      // Debug: log setiap 5 detik
+      if (_remainingSeconds % 5 == 0 && prevRemaining != _remainingSeconds) {
+        debugPrint('[FocusTimer] Countdown: $_remainingSeconds secs remaining (elapsed: $elapsedSeconds)');
         _box.put(_currentSession!.id, _currentSession!);
       }
 
@@ -106,10 +117,13 @@ class FocusTimerProvider extends ChangeNotifier {
 
       // Timer selesai
       if (_remainingSeconds <= 0) {
+        debugPrint('[FocusTimer] Countdown complete! Calling _completeSessionSync()');
         timer.cancel();
         _completeSessionSync();
       }
     });
+
+    debugPrint('[FocusTimer] Timer.periodic started successfully');
   }
 
   /// Synchronous version untuk timer callback (async ops happen in background)

@@ -16,8 +16,6 @@ class GoalProvider extends ChangeNotifier {
 
   List<GoalModel> get activeGoals =>
       _goals.where((g) => g.status == GoalStatus.active).toList();
-  List<GoalModel> get pendingReviewGoals =>
-      _goals.where((g) => g.status == GoalStatus.sentForReview).toList();
   List<GoalModel> get completedGoals =>
       _goals.where((g) => g.isCompleted).toList();
 
@@ -206,62 +204,23 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Sent for Review ───────────────────────────────────────────────────────
+  // ── Complete Goal ─────────────────────────────────────────────────────────
 
-  /// User menandai goal sebagai selesai, menunggu review/verifikasi
-  Future<void> sendForReview(String id) async {
+  /// Mark goal as completed dan berikan reward
+  Future<int> completeGoal(String id) async {
     final goal = _box.get(id);
-    if (goal == null || goal.status != GoalStatus.active) return;
-    goal.currentProgress = goal.targetProgress; // 100%
-    goal.status = GoalStatus.sentForReview;
+    if (goal == null || goal.status != GoalStatus.active) return 0;
+    goal.status = GoalStatus.completed;
     await _box.put(goal.id, goal);
-    _loadGoals();
-    notifyListeners();
-  }
-
-  /// Simulasi AI/admin review: approve goal → beri reward koin scalable
-  /// Mengembalikan jumlah koin yang diberikan
-  Future<int> approveGoal(String id) async {
-    final goal = _box.get(id);
-    if (goal == null || goal.status != GoalStatus.sentForReview) return 0;
-    goal.status = GoalStatus.approved;
-    goal.reviewNotes = 'Goal diverifikasi dan disetujui!';
-    await _box.put(goal.id, goal);
-
-    // Hitung reward berdasarkan durasi goal
-    final reward = _computeGoalReward(goal);
 
     // Simpan koin ke SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final currentCoins = prefs.getInt('user_coins') ?? 0;
-    await prefs.setInt('user_coins', currentCoins + reward);
+    await prefs.setInt('user_coins', currentCoins + goal.coins);
 
     _loadGoals();
     notifyListeners();
-    return reward;
-  }
-
-  /// Reject goal (kirim kembali ke active)
-  Future<void> rejectGoal(String id, String notes) async {
-    final goal = _box.get(id);
-    if (goal == null || goal.status != GoalStatus.sentForReview) return;
-    goal.status = GoalStatus.active;
-    goal.currentProgress = 0;
-    goal.reviewNotes = notes;
-    await _box.put(goal.id, goal);
-    _loadGoals();
-    notifyListeners();
-  }
-
-  // ── Helper: Compute reward coins berdasarkan durasi goal ──────────────────
-  int _computeGoalReward(GoalModel goal) {
-    if (goal.deadline == null) return goal.coins;
-    final days = goal.deadline!.difference(goal.createdAt).inDays;
-    if (days > 365) return 6000;
-    if (days > 180) return 3000;
-    if (days > 90) return 1500;
-    if (days > 30) return 700;
-    return 300;
+    return goal.coins;
   }
 
 }

@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +25,36 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _adminSetupDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-setup admin jika user login dengan email admin
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupAdminIfNeeded();
+    });
+  }
+
+  Future<void> _setupAdminIfNeeded() async {
+    if (!mounted) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final adminProvider = context.read<AdminProvider>();
+    final profileProvider = context.read<UserProfileProvider>();
+    final habitProvider = context.read<HabitProvider>();
+
+    // Hanya jalankan sekali dan jika user sudah login
+    if (!_adminSetupDone && authProvider.isLoggedIn) {
+      _adminSetupDone = true;
+      await authProvider.completeGoogleLoginSetup(
+        adminProvider: adminProvider,
+        profileProvider: profileProvider,
+        habitProvider: habitProvider,
+      );
+    }
+  }
+
   // ── Helper Methods for Theme-Aware Colors ──────────────────────────────
 
   Color _getBackgroundColor(BuildContext context) {

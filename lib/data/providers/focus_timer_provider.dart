@@ -92,6 +92,9 @@ class FocusTimerProvider extends ChangeNotifier {
     _timer?.cancel();
     debugPrint('[FocusTimer] _startCountdown() called, starting timer.periodic');
 
+    // Immediate first update
+    notifyListeners();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_currentSession == null) {
         debugPrint('[FocusTimer] ERROR: _currentSession is null, canceling timer');
@@ -107,12 +110,15 @@ class FocusTimerProvider extends ChangeNotifier {
 
       _currentSession?.elapsedSeconds = elapsedSeconds;
 
+      // Save progress setiap detik untuk recovery
+      _box.put(_currentSession!.id, _currentSession!);
+
       // Debug: log setiap 5 detik
       if (_remainingSeconds % 5 == 0 && prevRemaining != _remainingSeconds) {
         debugPrint('[FocusTimer] Countdown: $_remainingSeconds secs remaining (elapsed: $elapsedSeconds)');
-        _box.put(_currentSession!.id, _currentSession!);
       }
 
+      // Always notify listeners untuk UI update
       notifyListeners();
 
       // Timer selesai

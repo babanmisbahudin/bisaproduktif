@@ -234,14 +234,8 @@ class GoalCard extends StatelessWidget {
       case GoalStatus.active:
         icon = Icons.flag_rounded;
         break;
-      case GoalStatus.sentForReview:
-        icon = Icons.hourglass_top_rounded;
-        break;
       case GoalStatus.completed:
         icon = Icons.check_circle_rounded;
-        break;
-      case GoalStatus.approved:
-        icon = Icons.verified_rounded;
         break;
     }
     return Container(

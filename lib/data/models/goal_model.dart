@@ -1,7 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/material.dart';
 
-enum GoalStatus { active, sentForReview, completed, approved }
+enum GoalStatus { active, completed }
 
 class GoalModel {
   String id;
@@ -49,20 +49,14 @@ class GoalModel {
   double get progressPercent =>
       targetProgress > 0 ? (currentProgress / targetProgress).clamp(0.0, 1.0) : 0.0;
 
-  bool get isCompleted => status == GoalStatus.completed || status == GoalStatus.approved;
-  bool get isSentForReview => status == GoalStatus.sentForReview;
-  bool get isApproved => status == GoalStatus.approved;
+  bool get isCompleted => status == GoalStatus.completed;
 
   String get statusLabel {
     switch (status) {
       case GoalStatus.active:
         return 'Aktif';
-      case GoalStatus.sentForReview:
-        return 'Menunggu Review';
       case GoalStatus.completed:
         return 'Selesai';
-      case GoalStatus.approved:
-        return 'Disetujui';
     }
   }
 }

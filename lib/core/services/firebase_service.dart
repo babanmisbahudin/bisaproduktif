@@ -78,4 +78,29 @@ class FirebaseService {
       return null;
     }
   }
+
+  // ── Admin: Get All Users ────────────────────────────────────────────────────
+
+  /// Ambil semua user dari Firestore untuk admin dashboard.
+  /// Returns list of {uid, name, totalCoins, trustScore, gender, whatsapp, lastSync}
+  static Future<List<Map<String, dynamic>>> getAllUsers() async {
+    if (!isLoggedIn) return [];
+    try {
+      final snapshot = await _db.collection('users').get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'uid': doc.id,
+          'name': data['name'] ?? 'Unknown',
+          'totalCoins': data['totalCoins'] ?? 0,
+          'trustScore': data['trustScore'] ?? 70,
+          'gender': data['gender'] ?? 'unknown',
+          'whatsapp': data['whatsapp'] ?? '-',
+          'lastSync': data['lastSync'],
+        };
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
 }

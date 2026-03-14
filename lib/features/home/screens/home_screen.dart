@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -62,6 +63,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final authProvider = context.read<auth_prov.AuthProvider>();
       authProvider.onLogoutNavigate = () async {
         if (mounted) {
+          // Reload user data saat logout untuk update nama
+          await _loadUserData();
           // Clear user name dari SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.remove('user_name');
@@ -71,14 +74,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           }
         }
       };
+
+      // Listen untuk perubahan auth state (login/logout)
+      authProvider.addListener(() {
+        if (mounted) {
+          _loadUserData();
+        }
+      });
     });
   }
 
   Future<void> _loadUserData() async {
+    // Capture context-dependent values before async gap
+    final authProvider = context.read<auth_prov.AuthProvider>();
+    final notificationProvider = context.read<NotificationProvider>();
+
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _userName = prefs.getString('user_name') ?? 'Pengguna');
+
+    // Jika sudah login via Google, gunakan nama dari Google account
+    // Jika belum login, gunakan nama pengguna dari SharedPreferences
+    if (authProvider.isLoggedIn && authProvider.displayName.isNotEmpty) {
+      setState(() => _userName = authProvider.displayName);
+    } else {
+      setState(() => _userName = prefs.getString('user_name') ?? 'Pengguna');
+    }
+
     if (mounted) {
-      context.read<NotificationProvider>().init(userName: _userName);
+      notificationProvider.init(userName: _userName);
     }
   }
 

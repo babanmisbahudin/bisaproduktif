@@ -31,10 +31,6 @@ class GoalsTab extends StatelessWidget {
           controller: scrollController,
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
           children: [
-            // Summary bar
-            if (provider.pendingReviewGoals.isNotEmpty)
-              _buildReviewBanner(context, provider),
-
             // Goal list
             ...goals.map((goal) => _buildGoalCard(context, provider, goal)),
           ],
@@ -43,133 +39,6 @@ class GoalsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildReviewBanner(BuildContext context, GoalProvider provider) {
-    final count = provider.pendingReviewGoals.length;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.hourglass_top_rounded,
-              color: AppColors.primary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '$count goal menunggu review & verifikasi',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          // Simulate AI approve (for demo)
-          TextButton(
-            onPressed: () => _simulateApproval(context, provider),
-            child: Text(
-              'Review',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _simulateApproval(
-      BuildContext context, GoalProvider provider) async {
-    final pending = provider.pendingReviewGoals;
-    if (pending.isEmpty) return;
-
-    final goal = pending.first;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.verified_rounded,
-                color: AppColors.primary),
-            const SizedBox(width: 8),
-            Text('Review Goal',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '"${goal.title}"',
-              style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Goal ini sedang menunggu verifikasi. Dalam versi lengkap, AI Coach akan memverifikasi bukti penyelesaian.',
-              style:
-                  GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () async {
-              await provider.rejectGoal(
-                  goal.id, 'Bukti belum cukup, coba lagi.');
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: Text('Tolak',
-                style: GoogleFonts.poppins(color: AppColors.danger)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final coins = await provider.approveGoal(goal.id);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                if (coins > 0) onCoinEarned?.call();
-                _showCoinReward(context, coins);
-              }
-            },
-            child: Text('Setujui',
-                style: GoogleFonts.poppins(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCoinReward(BuildContext context, int coins) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.monetization_on, color: Colors.amber),
-            const SizedBox(width: 8),
-            Text(
-              '+$coins koin! Goal berhasil diverifikasi!',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
 
   Widget _buildGoalCard(
       BuildContext context, GoalProvider provider, GoalModel goal) {
@@ -260,10 +129,6 @@ class GoalsTab extends StatelessWidget {
         onLongPress: goal.status == GoalStatus.active
             ? () => _openEditGoal(context, goal)
             : null,
-        onSendForReview: goal.status == GoalStatus.active &&
-                goal.currentProgress >= goal.targetProgress
-            ? () => _confirmSendForReview(context, provider, goal)
-            : null,
       ),
     );
   }
@@ -273,54 +138,6 @@ class GoalsTab extends StatelessWidget {
       context,
       AppTransition.slideRight(child: AddGoalScreen(editGoal: goal)),
     );
-  }
-
-  Future<void> _confirmSendForReview(
-      BuildContext context, GoalProvider provider, GoalModel goal) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Kirim untuk Review?',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-        content: Text(
-          'Goal "${goal.title}" akan dikirim untuk diverifikasi. Kamu akan mendapat ${goal.coins} koin jika disetujui.',
-          style: GoogleFonts.poppins(fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Batal',
-                style:
-                    GoogleFonts.poppins(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Kirim',
-                style: GoogleFonts.poppins(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await provider.sendForReview(goal.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Goal dikirim! Menunggu verifikasi AI Coach...',
-              style: GoogleFonts.poppins(),
-            ),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-    }
   }
 
   void _showGoalDetails(BuildContext context, GoalProvider provider, GoalModel goal) {
@@ -422,11 +239,7 @@ class GoalsTab extends StatelessWidget {
                   Icon(
                     goal.status == GoalStatus.active
                         ? Icons.flag_rounded
-                        : goal.status == GoalStatus.sentForReview
-                            ? Icons.hourglass_top_rounded
-                            : goal.status == GoalStatus.approved
-                                ? Icons.verified_rounded
-                                : Icons.check_circle_rounded,
+                        : Icons.check_circle_rounded,
                     color: goal.color,
                     size: 18,
                   ),
@@ -456,7 +269,10 @@ class GoalsTab extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(ctx);
-                _openEditGoal(context, goal);
+                Navigator.push(
+                  context,
+                  AppTransition.slideRight(child: AddGoalScreen(editGoal: goal)),
+                );
               },
               icon: const Icon(Icons.edit_rounded, size: 18),
               label: Text(
@@ -466,13 +282,36 @@ class GoalsTab extends StatelessWidget {
             ),
           if (goal.status == GoalStatus.active && goal.currentProgress >= goal.targetProgress)
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(ctx);
-                _confirmSendForReview(context, provider, goal);
+                final coins = await provider.completeGoal(goal.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.monetization_on, color: Colors.amber),
+                          const SizedBox(width: 8),
+                          Text(
+                            '+$coins koin! Goal selesai! 🎉',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  onCoinEarned?.call();
+                }
               },
-              icon: const Icon(Icons.send_rounded, size: 18),
+              icon: const Icon(Icons.check_circle_rounded, size: 18),
               label: Text(
-                'Kirim Review',
+                'Selesaikan',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(

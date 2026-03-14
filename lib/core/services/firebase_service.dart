@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../data/models/transaction_model.dart';
 
 /// Wrapper untuk operasi Firebase Auth + Firestore.
 /// Semua method aman dipanggil bahkan saat Firebase belum dikonfigurasi
@@ -102,5 +103,79 @@ class FirebaseService {
     } catch (_) {
       return [];
     }
+  }
+
+  // ── Redemption Sync ─────────────────────────────────────────────────────────
+
+  /// Simpan redemption request ke Firestore global collection untuk admin
+  static Future<void> saveRedemptionRequest(TransactionModel tx) async {
+    try {
+      // Simpan dengan userEmail dari current user
+      final userEmail = _auth.currentUser?.email ?? '';
+      await _db.collection('redemptions').doc(tx.id).set({
+        'id': tx.id,
+        'userId': tx.userId,
+        'userEmail': userEmail,
+        'userName': tx.userName,
+        'rewardId': tx.rewardId,
+        'rewardTitle': tx.rewardTitle,
+        'rewardEmoji': tx.rewardEmoji,
+        'coinsCost': tx.coinsCost,
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': tx.status,
+        'category': tx.category,
+        'approvedBy': tx.approvedBy,
+        'approvedAt': tx.approvedAt,
+        'rejectionReason': tx.rejectionReason,
+      });
+    } catch (_) {}
+  }
+
+  /// Ambil semua pending redemption dari Firestore untuk admin
+  /// Returns list of {id, userId, userEmail, userName, rewardTitle, coinsCost, timestamp, status, rewardEmoji}
+  static Future<List<Map<String, dynamic>>> getAllPendingRedemptions() async {
+    if (!isLoggedIn) return [];
+    try {
+      final snapshot = await _db
+          .collection('redemptions')
+          .where('status', isEqualTo: 'pending')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'userId': data['userId'] as String? ?? '',
+          'userEmail': data['userEmail'] as String? ?? '',
+          'userName': data['userName'] as String? ?? 'Unknown',
+          'rewardTitle': data['rewardTitle'] as String? ?? 'Unknown Reward',
+          'rewardEmoji': data['rewardEmoji'] as String? ?? '🎁',
+          'coinsCost': data['coinsCost'] as int? ?? 0,
+          'timestamp': (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          'status': data['status'] as String? ?? 'pending',
+        };
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Update status redemption (approve/reject) di Firestore
+  static Future<void> updateRedemptionStatus({
+    required String transactionId,
+    required String status, // 'approved' or 'rejected'
+    required String adminEmail,
+    String? rejectionReason,
+  }) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('redemptions').doc(transactionId).update({
+        'status': status,
+        'approvedBy': adminEmail,
+        'approvedAt': FieldValue.serverTimestamp(),
+        if (rejectionReason != null) 'rejectionReason': rejectionReason,
+      });
+    } catch (_) {}
   }
 }

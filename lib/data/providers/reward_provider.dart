@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
+import '../../core/services/firebase_service.dart';
 import 'habit_provider.dart';
 
 // ── Reward Item (tidak disimpan di Hive) ──────────────────────────────────
@@ -191,6 +192,9 @@ class RewardProvider extends ChangeNotifier {
       category: reward.category,
     );
     await _box.put(tx.id, tx);
+
+    // Sync redemption ke Firebase (async, tidak perlu await)
+    FirebaseService.saveRedemptionRequest(tx);
 
     // Simpan last redeem timestamp
     await prefs.setString(_lastRedeemKey, DateTime.now().toIso8601String());

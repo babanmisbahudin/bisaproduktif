@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/onboarding/screens/splash_screen.dart';
 import '../../features/onboarding/screens/onboarding_name_screen.dart';
+import '../../features/auth/screens/login_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import 'app_transition.dart';
 
@@ -22,7 +23,20 @@ class AppRouter {
         ),
       ),
 
-      // Onboarding Name: slide dari kanan
+      // Login screen
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const LoginScreen(),
+          transitionDuration: const Duration(milliseconds: 500),
+          reverseTransitionDuration: const Duration(milliseconds: 350),
+          transitionsBuilder: AppTransition.fadeTransition,
+        ),
+      ),
+
+      // Onboarding Name: slide dari kanan (deprecated, kept for compatibility)
       GoRoute(
         path: '/onboarding/name',
         name: 'onboarding-name',

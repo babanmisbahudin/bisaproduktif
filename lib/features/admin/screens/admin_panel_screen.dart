@@ -23,9 +23,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    // Fetch users saat screen dibuka
+    // Fetch users dan redemptions saat screen dibuka
     Future.microtask(() {
-      context.read<AdminProvider>().fetchAllUsers();
+      final adminProvider = context.read<AdminProvider>();
+      adminProvider.fetchAllUsers();
+      adminProvider.fetchAllPendingRedemptions();
     });
   }
 
@@ -429,7 +431,44 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     AdminProvider adminProvider,
     HabitProvider habitProvider,
   ) {
-    final pending = rewardProvider.pendingRedemptions;
+    // Loading state
+    if (adminProvider.isLoadingRedemptions) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    // Error state
+    if (adminProvider.redemptionsError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('❌', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading redemptions',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              adminProvider.redemptionsError ?? 'Unknown error',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final pending = adminProvider.pendingRedemptions;
 
     if (pending.isEmpty) {
       return Center(
@@ -462,7 +501,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: pending.length,
-      itemBuilder: (ctx, idx) => _buildClaimCard(
+      itemBuilder: (ctx, idx) => _buildFirebaseClaimCard(
         context,
         pending[idx],
         adminProvider,

@@ -25,12 +25,20 @@ class AdminProvider extends ChangeNotifier {
   bool _isLoadingUsers = false;
   String? _usersError;
 
+  // Redemption management (from Firebase)
+  List<Map<String, dynamic>> _pendingRedemptions = [];
+  bool _isLoadingRedemptions = false;
+  String? _redemptionsError;
+
   String? get adminEmail => _adminEmail;
   bool get isAdmin => _isAdmin;
   bool get isLockedOut => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
   List<Map<String, dynamic>> get allUsers => List.unmodifiable(_allUsers);
   bool get isLoadingUsers => _isLoadingUsers;
   String? get usersError => _usersError;
+  List<Map<String, dynamic>> get pendingRedemptions => List.unmodifiable(_pendingRedemptions);
+  bool get isLoadingRedemptions => _isLoadingRedemptions;
+  String? get redemptionsError => _redemptionsError;
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -181,5 +189,77 @@ class AdminProvider extends ChangeNotifier {
     }
 
     return distribution;
+  }
+
+  // ── Redemption Management (Firebase) ────────────────────────────────────────
+
+  /// Fetch semua pending redemptions dari Firebase
+  Future<void> fetchAllPendingRedemptions() async {
+    if (!_isAdmin) return;
+
+    _isLoadingRedemptions = true;
+    _redemptionsError = null;
+    notifyListeners();
+
+    try {
+      _pendingRedemptions = await FirebaseService.getAllPendingRedemptions();
+      _redemptionsError = null;
+    } catch (e) {
+      _redemptionsError = 'Error: ${e.toString()}';
+      debugPrint('[Admin] Error fetching redemptions: $e');
+    } finally {
+      _isLoadingRedemptions = false;
+      notifyListeners();
+    }
+  }
+
+  /// Approve pending redemption dari Firebase
+  Future<bool> approveFirebaseRedemption({
+    required String transactionId,
+    required RewardProvider rewardProvider,
+    required HabitProvider habitProvider,
+  }) async {
+    if (!_isAdmin) return false;
+
+    try {
+      await FirebaseService.updateRedemptionStatus(
+        transactionId: transactionId,
+        status: 'approved',
+        adminEmail: _adminEmail!,
+      );
+
+      // Reload redemptions dari Firebase
+      await fetchAllPendingRedemptions();
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error approving redemption: $e');
+      return false;
+    }
+  }
+
+  /// Reject pending redemption dari Firebase
+  Future<bool> rejectFirebaseRedemption({
+    required String transactionId,
+    required String reason,
+    required RewardProvider rewardProvider,
+    required HabitProvider habitProvider,
+  }) async {
+    if (!_isAdmin) return false;
+
+    try {
+      await FirebaseService.updateRedemptionStatus(
+        transactionId: transactionId,
+        status: 'rejected',
+        adminEmail: _adminEmail!,
+        rejectionReason: reason,
+      );
+
+      // Reload redemptions dari Firebase
+      await fetchAllPendingRedemptions();
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error rejecting redemption: $e');
+      return false;
+    }
   }
 }

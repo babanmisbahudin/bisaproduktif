@@ -25,6 +25,28 @@ class RewardItem {
     required this.category,
     required this.color,
   });
+
+  // Convert ke Firestore map
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'emoji': emoji,
+    'title': title,
+    'description': description,
+    'price': price,
+    'category': category,
+    'colorValue': color.value, // int (ARGB), e.g. 0xFF6F4E37
+  };
+
+  // Construct dari Firestore doc
+  factory RewardItem.fromMap(Map<String, dynamic> map) => RewardItem(
+    id: map['id'] as String? ?? '',
+    emoji: map['emoji'] as String? ?? '🎁',
+    title: map['title'] as String? ?? '',
+    description: map['description'] as String? ?? '',
+    price: map['price'] as int? ?? 0,
+    category: map['category'] as String? ?? 'merchandise',
+    color: Color(map['colorValue'] as int? ?? 0xFF4A7C59),
+  );
 }
 
 // ── Enum hasil redeem ──────────────────────────────────────────────────────
@@ -35,6 +57,7 @@ enum RedeemResult {
   trustFrozen,    // trust score < 40, koin dibekukan
   trustLimited,   // trust score 40-59, limit 500 koin/hari
   dailyLimitExceeded,
+  blocked,        // user diblokir oleh admin
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────
@@ -49,10 +72,15 @@ class RewardProvider extends ChangeNotifier {
   late Box<TransactionModel> _box;
   List<TransactionModel> _transactions = [];
   bool _isLoaded = false;
+  List<RewardItem> _dynamicCatalog = [];
+  bool _isCatalogLoaded = false;
 
   List<TransactionModel> get transactions =>
       List.unmodifiable(_transactions);
   bool get isLoaded => _isLoaded;
+  List<RewardItem> get dynamicCatalog =>
+      List.unmodifiable(_dynamicCatalog);
+  bool get isCatalogLoaded => _isCatalogLoaded;
 
   // ── Init ─────────────────────────────────────────────────────────────────
 
@@ -60,12 +88,33 @@ class RewardProvider extends ChangeNotifier {
     _box = await Hive.openBox<TransactionModel>(_boxName);
     _loadTransactions();
     _isLoaded = true;
+    // Fetch dynamic catalog dari Firestore
+    await fetchCatalog();
     notifyListeners();
   }
 
   void _loadTransactions() {
     _transactions = _box.values.toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  }
+
+  // ── Dynamic Catalog (dari Firestore) ───────────────────────────────────────
+
+  Future<void> fetchCatalog() async {
+    try {
+      final items = await FirebaseService.fetchRewards();
+      if (items.isNotEmpty) {
+        _dynamicCatalog = items;
+      } else {
+        // Fallback ke hardcoded catalog jika Firestore kosong/offline
+        _dynamicCatalog = List.from(catalog);
+      }
+    } catch (_) {
+      // Error atau offline: gunakan hardcoded catalog
+      _dynamicCatalog = List.from(catalog);
+    }
+    _isCatalogLoaded = true;
+    notifyListeners();
   }
 
   // ── Catalog ───────────────────────────────────────────────────────────────
@@ -117,8 +166,9 @@ class RewardProvider extends ChangeNotifier {
   ];
 
   List<RewardItem> filteredCatalog(String category) {
-    if (category == 'semua') return catalog;
-    return catalog.where((r) => r.category == category).toList();
+    final source = _isCatalogLoaded ? _dynamicCatalog : catalog;
+    if (category == 'semua') return source;
+    return source.where((r) => r.category == category).toList();
   }
 
   // ── Redeem ────────────────────────────────────────────────────────────────
@@ -146,6 +196,10 @@ class RewardProvider extends ChangeNotifier {
 
     // Cek koin cukup
     if (totalCoins < reward.price) return RedeemResult.insufficientCoins;
+
+    // Cek apakah user diblokir oleh admin
+    final isBlocked = await FirebaseService.isUserBlocked();
+    if (isBlocked) return RedeemResult.blocked;
 
     // Anti-fraud: cek duplikat pending untuk reward yang sama
     final hasDuplicate = pendingRedemptions.any((t) =>

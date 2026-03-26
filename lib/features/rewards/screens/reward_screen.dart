@@ -518,6 +518,9 @@ class _RewardScreenState extends State<RewardScreen> {
       case RedeemResult.trustLimited:
         _showSnack('Trust score rendah. Limit 500 koin/hari ⚠️', AppColors.warning);
         break;
+      case RedeemResult.blocked:
+        _showSnack('🚫 Akun diblokir. Hubungi admin untuk info lebih lanjut.', AppColors.danger);
+        break;
     }
   }
 

@@ -30,6 +30,10 @@ class AdminProvider extends ChangeNotifier {
   bool _isLoadingRedemptions = false;
   String? _redemptionsError;
 
+  // Reward catalog management
+  List<RewardItem> _adminRewards = [];
+  bool _isLoadingRewards = false;
+
   String? get adminEmail => _adminEmail;
   bool get isAdmin => _isAdmin;
   bool get isLockedOut => _lockedUntil != null && DateTime.now().isBefore(_lockedUntil!);
@@ -39,6 +43,8 @@ class AdminProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get pendingRedemptions => List.unmodifiable(_pendingRedemptions);
   bool get isLoadingRedemptions => _isLoadingRedemptions;
   String? get redemptionsError => _redemptionsError;
+  List<RewardItem> get adminRewards => List.unmodifiable(_adminRewards);
+  bool get isLoadingRewards => _isLoadingRewards;
 
   // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -191,6 +197,101 @@ class AdminProvider extends ChangeNotifier {
     return distribution;
   }
 
+  /// Get flagged users (trust score < 60) untuk fraud alerts
+  List<Map<String, dynamic>> get flaggedUsers =>
+      _allUsers.where((u) => (u['trustScore'] as int? ?? 70) < 60).toList();
+
+  // ── User Management: Block/Unblock ──────────────────────────────────────────
+
+  /// Block a user dari redeem rewards
+  Future<bool> blockUser(String uid) async {
+    if (!_isAdmin) return false;
+    try {
+      await FirebaseService.blockUser(uid);
+      // Update local list untuk instant UI feedback
+      final idx = _allUsers.indexWhere((u) => u['uid'] == uid);
+      if (idx != -1) {
+        _allUsers[idx] = Map.from(_allUsers[idx])..['isBlocked'] = true;
+        notifyListeners();
+        // Log admin action
+        await FirebaseService.logAdminAction(
+          action: 'block_user',
+          targetUid: uid,
+          data: {
+            'adminEmail': _adminEmail,
+            'userName': _allUsers[idx]['name'],
+          },
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error blocking user: $e');
+      return false;
+    }
+  }
+
+  /// Unblock a user untuk redeem rewards
+  Future<bool> unblockUser(String uid) async {
+    if (!_isAdmin) return false;
+    try {
+      await FirebaseService.unblockUser(uid);
+      // Update local list untuk instant UI feedback
+      final idx = _allUsers.indexWhere((u) => u['uid'] == uid);
+      if (idx != -1) {
+        _allUsers[idx] = Map.from(_allUsers[idx])..['isBlocked'] = false;
+        notifyListeners();
+        // Log admin action
+        await FirebaseService.logAdminAction(
+          action: 'unblock_user',
+          targetUid: uid,
+          data: {
+            'adminEmail': _adminEmail,
+            'userName': _allUsers[idx]['name'],
+          },
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error unblocking user: $e');
+      return false;
+    }
+  }
+
+  /// Adjust user trust score dengan alasan
+  Future<bool> adjustUserTrustScore(
+    String uid,
+    int adjustment, // contoh: -10, -20, -30, +10
+    String reason,
+  ) async {
+    if (!_isAdmin) return false;
+    try {
+      final idx = _allUsers.indexWhere((u) => u['uid'] == uid);
+      if (idx == -1) return false;
+
+      final current = _allUsers[idx]['trustScore'] as int? ?? 70;
+      final newScore = (current + adjustment).clamp(0, 100);
+
+      await FirebaseService.updateUserTrustScore(uid, newScore, reason);
+      _allUsers[idx] = Map.from(_allUsers[idx])..['trustScore'] = newScore;
+      notifyListeners();
+      // Log admin action
+      await FirebaseService.logAdminAction(
+        action: 'trust_adjust',
+        targetUid: uid,
+        data: {
+          'adminEmail': _adminEmail,
+          'adjustment': adjustment,
+          'newScore': newScore,
+          'reason': reason,
+        },
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error adjusting trust score: $e');
+      return false;
+    }
+  }
+
   // ── Redemption Management (Firebase) ────────────────────────────────────────
 
   /// Fetch semua pending redemptions dari Firebase
@@ -259,6 +360,75 @@ class AdminProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       debugPrint('[Admin] Error rejecting redemption: $e');
+      return false;
+    }
+  }
+
+  // ── Reward Catalog Management ──────────────────────────────────────────────
+
+  /// Fetch semua rewards dari Firestore untuk admin catalog
+  Future<void> fetchAdminRewards() async {
+    if (!_isAdmin) return;
+
+    _isLoadingRewards = true;
+    notifyListeners();
+
+    try {
+      _adminRewards = await FirebaseService.fetchRewards();
+    } catch (e) {
+      debugPrint('[Admin] Error fetching rewards: $e');
+    } finally {
+      _isLoadingRewards = false;
+      notifyListeners();
+    }
+  }
+
+  /// Add new reward
+  Future<bool> addReward(RewardItem reward) async {
+    if (!_isAdmin) return false;
+
+    try {
+      await FirebaseService.addReward(reward);
+      // Reload rewards list
+      await fetchAdminRewards();
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error adding reward: $e');
+      return false;
+    }
+  }
+
+  /// Update existing reward
+  Future<bool> updateReward(RewardItem reward) async {
+    if (!_isAdmin) return false;
+
+    try {
+      await FirebaseService.updateReward(reward);
+      // Update local list untuk instant UI feedback
+      final idx = _adminRewards.indexWhere((r) => r.id == reward.id);
+      if (idx != -1) {
+        _adminRewards[idx] = reward;
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error updating reward: $e');
+      return false;
+    }
+  }
+
+  /// Delete reward (soft delete)
+  Future<bool> deleteReward(String rewardId) async {
+    if (!_isAdmin) return false;
+
+    try {
+      await FirebaseService.deleteReward(rewardId);
+      // Remove dari local list
+      _adminRewards.removeWhere((r) => r.id == rewardId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error deleting reward: $e');
       return false;
     }
   }

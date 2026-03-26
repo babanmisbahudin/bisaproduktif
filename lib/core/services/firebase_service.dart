@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/models/transaction_model.dart';
+import '../../data/providers/reward_provider.dart';
 
 /// Wrapper untuk operasi Firebase Auth + Firestore.
 /// Semua method aman dipanggil bahkan saat Firebase belum dikonfigurasi
@@ -67,6 +68,29 @@ class FirebaseService {
     } catch (_) {}
   }
 
+  /// Log aksi admin ke activity_log (untuk audit trail)
+  /// [action]: 'block_user' | 'unblock_user' | 'trust_adjust'
+  /// [targetUid]: uid user yang dikenai aksi
+  static Future<void> logAdminAction({
+    required String action,
+    required String targetUid,
+    required Map<String, dynamic> data,
+  }) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('activity_log')
+          .add({
+        'type': 'admin_$action',
+        'targetUid': targetUid,
+        'timestamp': FieldValue.serverTimestamp(),
+        'data': data,
+      });
+    } catch (_) {}
+  }
+
   // ── Fetch User Data ─────────────────────────────────────────────────────
 
   /// Ambil data user dari Firestore. Returns null jika belum login/error.
@@ -98,6 +122,7 @@ class FirebaseService {
           'gender': data['gender'] ?? 'unknown',
           'whatsapp': data['whatsapp'] ?? '-',
           'lastSync': data['lastSync'],
+          'isBlocked': data['isBlocked'] ?? false,
         };
       }).toList();
     } catch (_) {
@@ -174,7 +199,105 @@ class FirebaseService {
         'status': status,
         'approvedBy': adminEmail,
         'approvedAt': FieldValue.serverTimestamp(),
-        if (rejectionReason != null) 'rejectionReason': rejectionReason,
+        'rejectionReason': ?rejectionReason,
+      });
+    } catch (_) {}
+  }
+
+  // ── Admin: User Management ───────────────────────────────────────────────────
+
+  /// Block a user dari redeem rewards
+  static Future<void> blockUser(String uid) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(uid).set({
+        'isBlocked': true,
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Unblock a user untuk redeem rewards
+  static Future<void> unblockUser(String uid) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(uid).set({
+        'isBlocked': false,
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Update user trust score dengan alasan dari admin
+  static Future<void> updateUserTrustScore(
+    String uid,
+    int newScore,
+    String reason,
+  ) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(uid).set({
+        'trustScore': newScore.clamp(0, 100),
+        'trustScoreReason': reason,
+        'trustScoreUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// Check apakah user sedang diblokir (untuk redemption guard)
+  static Future<bool> isUserBlocked() async {
+    if (!isLoggedIn) return false;
+    try {
+      final doc = await _db.collection('users').doc(userId).get();
+      return doc.data()?['isBlocked'] as bool? ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Reward Catalog Management ──────────────────────────────────────────────
+
+  /// Fetch semua active rewards dari Firestore untuk catalog
+  /// Returns list of RewardItem objects
+  static Future<List<RewardItem>> fetchRewards() async {
+    try {
+      final snapshot = await _db
+          .collection('rewards')
+          .where('isActive', isEqualTo: true)
+          .get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return RewardItem.fromMap({...data, 'id': doc.id});
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Add new reward (admin only)
+  static Future<void> addReward(RewardItem reward) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('rewards').doc(reward.id).set({
+        ...reward.toMap(),
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  /// Update existing reward (admin only)
+  static Future<void> updateReward(RewardItem reward) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('rewards').doc(reward.id).update(reward.toMap());
+    } catch (_) {}
+  }
+
+  /// Delete reward - soft delete (set isActive=false) untuk preserve history
+  static Future<void> deleteReward(String rewardId) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('rewards').doc(rewardId).update({
+        'isActive': false,
       });
     } catch (_) {}
   }

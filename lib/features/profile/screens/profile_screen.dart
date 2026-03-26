@@ -1,7 +1,9 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/widgets/bottom_navbar_widget.dart';
@@ -344,13 +346,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   );
                   if (confirm == true && mounted) {
+                    // Clear all user data
                     await habitProvider.clearUserData();
                     await goalProvider.clearUserData();
                     await memoProvider.clearUserData();
                     await focusProvider.clearUserData();
-                    // signOut() akan trigger onLogoutNavigate callback dari HomeScreen
+
+                    // Clear onboarding flag to show login screen
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.remove('is_onboarded');
+
+                    // Sign out
                     await authProvider.signOut();
-                    // Jangan call nav.pop() — callback akan handle navigation
+
+                    // Navigate back to login screen untuk bisa ganti email
+                    if (mounted) {
+                      context.go('/login');
+                    }
                   }
                 },
                 style: OutlinedButton.styleFrom(
@@ -375,7 +387,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: BottomNavBar(activeIndex: 3),
+        child: BottomNavBar(
+          activeIndex: adminProvider.isAdmin ? 4 : 3,
+        ),
       ),
     );
   }

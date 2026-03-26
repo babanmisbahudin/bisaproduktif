@@ -4,11 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../../data/providers/admin_provider.dart';
-import '../../data/providers/reward_provider.dart';
 import '../../features/report/screens/report_screen.dart';
 import '../../features/rewards/screens/reward_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
-import '../../features/admin/screens/admin_reward_claims_screen.dart';
+import '../../features/admin/screens/admin_panel_screen.dart';
 import '../utils/app_transition.dart';
 
 class BottomNavBar extends StatelessWidget {
@@ -64,26 +63,20 @@ class BottomNavBar extends StatelessWidget {
             },
           ),
           if (adminProvider.isAdmin)
-            Builder(
-              builder: (ctx) {
-                final rewardProvider = ctx.read<RewardProvider>();
-                final pendingCount = adminProvider.getPendingCount(rewardProvider);
-                return _buildNavItem(
-                  context: context,
-                  icon: Icons.admin_panel_settings,
-                  isActive: activeIndex == 3,
-                  badge: pendingCount,
-                  onTap: () {
-                    if (activeIndex != 3) {
-                      Navigator.push(
-                        context,
-                        AppTransition.slideRight(
-                          child: const AdminRewardClaimsScreen(),
-                        ),
-                      );
-                    }
-                  },
-                );
+            _buildNavItem(
+              context: context,
+              icon: Icons.admin_panel_settings,
+              isActive: activeIndex == 3,
+              badge: adminProvider.pendingRedemptions.length,
+              onTap: () {
+                if (activeIndex != 3) {
+                  Navigator.push(
+                    context,
+                    AppTransition.slideRight(
+                      child: const AdminPanelScreen(),
+                    ),
+                  );
+                }
               },
             ),
           _buildNavItem(

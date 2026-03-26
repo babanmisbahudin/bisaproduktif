@@ -18,7 +18,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _nameController = TextEditingController();
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
@@ -79,28 +78,9 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  Future<void> _handleGuestContinue() async {
-    if (_nameController.text.trim().isEmpty) {
-      setState(() => _error = 'Nama tidak boleh kosong');
-      return;
-    }
-
-    setState(() => _error = null);
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_name', _nameController.text.trim());
-    await prefs.setBool('is_onboarded', true);
-    await prefs.setInt('user_coins', 0);
-    await prefs.setInt('trust_score', 70);
-
-    if (mounted) {
-      context.go('/home');
-    }
-  }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -135,191 +115,259 @@ class _LoginScreenState extends State<LoginScreen>
               );
             },
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-
-                  // Logo
-                  Center(child: _buildLogo()),
-                  const SizedBox(height: 40),
-
-                  // Headline
-                  Text(
-                    'Selamat Datang! 👋',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height - 100,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Top Section - Logo
+                    Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        Center(child: _buildLogo()),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Login untuk memulai journey produktifmu',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
 
-                  // Google Sign-In Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoadingGoogle ? null : _handleGoogleSignIn,
-                      icon: _isLoadingGoogle
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('🔵'),
-                      label: Text(
-                        _isLoadingGoogle ? 'Sedang login...' : 'Masuk dengan Google',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Divider
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          thickness: 1,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'atau',
+                    // Middle Section - Marketing Copy
+                    Column(
+                      children: [
+                        // Main Headline
+                        Text(
+                          'Ubah Produktivitasmu',
                           style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            height: 1.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Subheadline
+                        Text(
+                          'Raih goals, kumpulkan koin, tukar dengan reward impianmu. Mulai perjalanan produktifmu hari ini! 🚀',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
                             color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Quick Stats
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatCard('10K+', 'Users Aktif'),
+                            _buildStatCard('50K+', 'Rewards Ditukar'),
+                            _buildStatCard('4.8⭐', 'Rating'),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Benefits Section
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildBenefitItem('✅', 'Tracking produktivitas real-time'),
+                              const SizedBox(height: 12),
+                              _buildBenefitItem('🎯', 'Goals tracker dengan AI tips'),
+                              const SizedBox(height: 12),
+                              _buildBenefitItem('🏆', 'Sistem reward yang menggiurkan'),
+                            ],
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Divider(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          thickness: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                      ],
+                    ),
 
-                  // Guest Mode
-                  Text(
-                    'Lanjut tanpa akun',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _nameController,
-                    enabled: !_isLoadingGoogle,
-                    decoration: InputDecoration(
-                      hintText: 'Masukkan nama kamu',
-                      hintStyle: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _isLoadingGoogle ? null : _handleGuestContinue,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(
-                          color: AppColors.primary.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Lanjut',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
+                    // Bottom Section - Button + Error
+                    Column(
+                      children: [
+                        // Error message
+                        if (_error != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.red.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text('⚠️', style: TextStyle(fontSize: 16)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.red[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
 
-                  // Error message
-                  if (_error != null) ...[
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.3),
+                        // Google Sign-In Button - CENTERED & PROMINENT
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: _isLoadingGoogle ? null : _handleGoogleSignIn,
+                            icon: _isLoadingGoogle
+                                ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Image.asset(
+                                    'assets/images/google_icon.png',
+                                    width: 20,
+                                    height: 20,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Text('🔵', style: TextStyle(fontSize: 18)),
+                                  ),
+                            label: Text(
+                              _isLoadingGoogle
+                                  ? 'Sedang membuka Google...'
+                                  : 'Mulai Sekarang dengan Google',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 24,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        _error!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.red[800],
-                          fontWeight: FontWeight.w500,
+
+                        const SizedBox(height: 16),
+
+                        // Trust Badge
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('🔒', style: TextStyle(fontSize: 14)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Data kamu aman & terenkripsi',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
+
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ],
-
-                  const SizedBox(height: 40),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatCard(String value, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBenefitItem(String icon, String text) {
+    return Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 20)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

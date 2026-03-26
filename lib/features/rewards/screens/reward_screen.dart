@@ -4,12 +4,15 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/widgets/bottom_navbar_widget.dart';
+import '../../../core/widgets/ad_pre_animation_widget.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/auth_provider.dart';
+import '../../../data/providers/admob_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/reward_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
+import '../../../core/widgets/dynamic_scene_painter.dart';
 import '../widgets/reward_card.dart';
 
 class RewardScreen extends StatefulWidget {
@@ -78,6 +81,8 @@ class _RewardScreenState extends State<RewardScreen> {
                 trustScore: trustScore,
                 coinsSpentToday: rewardProvider.coinsSpentToday,
               ),
+              // Watch ads section
+              _buildWatchAdSection(context),
               // Category filter
               _buildCategoryFilter(),
               // Reward grid (responsive columns)
@@ -91,8 +96,14 @@ class _RewardScreenState extends State<RewardScreen> {
                           if (gridCols == 1) gridCols = 2;
 
                           final spacing = ctx.padding(10);
+                          final padding = ctx.padding(12);
                           return GridView.builder(
-                            padding: EdgeInsets.fromLTRB(12, 12, 12, 120),
+                            padding: EdgeInsets.fromLTRB(
+                              padding,
+                              padding,
+                              padding,
+                              ctx.padding(120),
+                            ),
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: gridCols,
@@ -209,6 +220,100 @@ class _RewardScreenState extends State<RewardScreen> {
     );
   }
 
+  // ── Watch Ads Section ─────────────────────────────────────────────────────
+
+  Widget _buildWatchAdSection(BuildContext context) {
+    return Consumer2<AdMobProvider, HabitProvider>(
+      builder: (context, adMobProvider, habitProvider, _) {
+        final remainingAds = adMobProvider.remainingAdsToday;
+        final isEligible = remainingAds > 0;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.1),
+                  AppColors.primary.withValues(alpha: 0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.play_circle, color: AppColors.primary, size: 24),
+                ),
+                const SizedBox(width: 12),
+                // Text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nonton Iklan, Dapatkan Poin!',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: _getTextPrimaryColor(context),
+                        ),
+                      ),
+                      Text(
+                        'Sisa hari ini: $remainingAds/5',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: _getTextSecondaryColor(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Button
+                SizedBox(
+                  width: 70,
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: isEligible ? () => _watchAd(context, habitProvider) : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isEligible ? AppColors.primary : Colors.grey[400],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Tonton',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── Empty State ───────────────────────────────────────────────────────────
 
   Widget _buildEmptyState() {
@@ -270,6 +375,169 @@ class _RewardScreenState extends State<RewardScreen> {
     if (context.mounted) {
       _showRedeemDialogContent(context, reward, habitProvider, rewardProvider);
     }
+  }
+
+  // ── Watch Ad ──────────────────────────────────────────────────────────────
+
+  void _watchAd(BuildContext context, HabitProvider habitProvider) async {
+    final adMobProvider = context.read<AdMobProvider>();
+
+    // Check eligibility
+    final (eligible, errorMsg) = await adMobProvider.checkEligibility();
+
+    if (!eligible) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    // Show loading dialog while loading ad
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Mempersiapkan iklan...',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Load ad
+    await adMobProvider.loadAd();
+
+    if (!context.mounted) return;
+    Navigator.pop(context); // Close loading dialog
+
+    // Check if ad loaded successfully
+    if (!adMobProvider.isAdReady) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(adMobProvider.eligibilityError ?? 'Gagal load iklan'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show pre-animation overlay
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => Dialog(
+          insetPadding: EdgeInsets.zero,
+          backgroundColor: Colors.transparent,
+          child: AdPreAnimationWidget(
+            weather: WeatherType.clear,
+            sceneTime: SceneTime.morning,
+            onAnimationComplete: () {
+              Navigator.pop(dialogContext);
+              _showAdAndAward(context, adMobProvider, habitProvider);
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showAdAndAward(
+    BuildContext context,
+    AdMobProvider adMobProvider,
+    HabitProvider habitProvider,
+  ) async {
+    // Show the actual ad
+    final watchDurationSeconds = await adMobProvider.showAd();
+
+    if (watchDurationSeconds == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Iklan ditutup sebelum selesai'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Award points based on watch duration
+    final pointsEarned = await adMobProvider.awardPointsForAd(watchDurationSeconds);
+
+    // Add coins to habit provider
+    habitProvider.addCoins(pointsEarned);
+
+    if (!context.mounted) return;
+
+    // Show success dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('🎉 Selesai!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Kamu mendapatkan',
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.monetization_on, color: Colors.amber, size: 28),
+                const SizedBox(width: 8),
+                Text(
+                  '$pointsEarned poin',
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Durasi menonton: ${watchDurationSeconds}s',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: Text(
+              'Yay!',
+              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showLoginRequiredDialog(BuildContext context) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/onboarding/screens/splash_screen.dart';
 import '../../features/onboarding/screens/onboarding_name_screen.dart';
+import '../../features/onboarding/screens/onboarding_flow_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import 'app_transition.dart';
@@ -17,6 +18,19 @@ class AppRouter {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const SplashScreen(),
+          transitionDuration: const Duration(milliseconds: 500),
+          reverseTransitionDuration: const Duration(milliseconds: 350),
+          transitionsBuilder: AppTransition.fadeTransition,
+        ),
+      ),
+
+      // Onboarding Flow (3-page PageView)
+      GoRoute(
+        path: '/onboarding/welcome',
+        name: 'onboarding-welcome',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const OnboardingFlowScreen(),
           transitionDuration: const Duration(milliseconds: 500),
           reverseTransitionDuration: const Duration(milliseconds: 350),
           transitionsBuilder: AppTransition.fadeTransition,

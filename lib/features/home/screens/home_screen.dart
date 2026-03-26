@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/utils/app_transition.dart';
+import '../../../core/widgets/responsive_layout_widget.dart';
 import '../../../core/widgets/dynamic_scene_painter.dart';
 import '../../../core/services/weather_service.dart' as weather;
 import '../../../data/providers/auth_provider.dart' as auth_prov;
@@ -389,6 +390,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Builder(
       builder: (context) {
         final fontSize = context.fontSize(46);
+        final iconSize = context.iconSize(17);
+        final labelFontSize = context.fontSize(13);
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -411,17 +414,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             SizedBox(height: context.padding(4)),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.monetization_on,
-                  color: Color(0xFFFFD54F),
-                  size: 17,
+                  color: const Color(0xFFFFD54F),
+                  size: iconSize,
                 ),
-                const SizedBox(width: 5),
+                SizedBox(width: context.padding(5)),
                 Text(
                   'COS coins collected',
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
+                    fontSize: labelFontSize,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.88),
                     shadows: [
@@ -456,34 +460,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ? '${weatherData.tempC.toStringAsFixed(0)}°C'
         : '';
 
-    return GestureDetector(
-      onTap: () async {
-        await _fetchWeather();
-      },
-      onLongPress: _showWeatherApiDialog,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.28),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 18)),
-            if (tempDisplay.isNotEmpty) ...[
-              const SizedBox(width: 4),
-              Text(
-                tempDisplay,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+    return Builder(
+      builder: (context) => GestureDetector(
+        onTap: () async {
+          await _fetchWeather();
+        },
+        onLongPress: _showWeatherApiDialog,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.padding(10),
+            vertical: context.padding(6),
+          ),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.28),
+            borderRadius: BorderRadius.circular(context.radius(16)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(icon, style: TextStyle(fontSize: context.fontSize(18))),
+              if (tempDisplay.isNotEmpty) ...[
+                SizedBox(width: context.padding(4)),
+                Text(
+                  tempDisplay,
+                  style: GoogleFonts.poppins(
+                    fontSize: context.fontSize(12),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -492,231 +501,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Header ────────────────────────────────────────────────────────────────
   Widget _buildHeader(HabitProvider provider) {
     return Consumer<auth_prov.AuthProvider>(
-      builder: (_, authProv, _) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-          child: Column(
-            children: [
-              // Top row: name + weather
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Left: wave + name
-                  GestureDetector(
-                    onTap: () => _showProfileSheet(authProv),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(14),
-                            border: authProv.isLoggedIn
-                                ? Border.all(
-                                    color: Colors.greenAccent.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    width: 1.5,
-                                  )
-                                : null,
-                          ),
-                          child: Center(
-                            child: authProv.isLoggedIn
-                                ? const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.greenAccent,
-                                    size: 20,
-                                  )
-                                : const Text(
-                                    '👋',
-                                    style: TextStyle(fontSize: 18),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          _userName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Right: weather
-                  _buildWeatherChip(),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Bottom row: progress pill
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.28),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.30),
-                      ),
-                    ),
-                    child: Text(
-                      '${provider.completedToday} / ${provider.totalHabits}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Bottom sheet ──────────────────────────────────────────────────────────
-  Widget _buildSheet(HabitProvider provider, ScrollController sc) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1A1A1A)
-            : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 28,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Drag handle area — large touch target for drag
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () {
-              // Tap handle to expand/collapse sheet
-              sc.animateTo(
-                0,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              child: Column(
-                children: [
-                  AnimatedBuilder(
-                    animation: _handlePulseAnim,
-                    builder: (ctx, child) {
-                      // Subtle scale + opacity pulse
-                      final scale = 1.0 + (_handlePulseAnim.value * 0.2);
-                      final opacity = 0.65 + (_handlePulseAnim.value * 0.2);
-                      return Transform.scale(
-                        scale: scale,
-                        child: Opacity(opacity: opacity, child: child),
-                      );
-                    },
-                    child: Container(
-                      width: 48,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[350],
-                        borderRadius: BorderRadius.circular(2.5),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+      builder: (_, authProv, context) {
+        return Builder(
+          builder: (context) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              context.padding(20),
+              context.padding(12),
+              context.padding(20),
+              0,
             ),
-          ),
-
-          // "Today" + add button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Text(
-                  'Hari ini',
-                  style: GoogleFonts.poppins(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                // Top row: name + weather (responsive layout)
+                context.isDesktop
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: _buildNameSection(authProv, context),
+                          ),
+                          SizedBox(width: context.padding(16)),
+                          _buildWeatherChip(),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: _buildNameSection(authProv, context),
+                          ),
+                          _buildWeatherChip(),
+                        ],
+                      ),
+                ResponsiveSpacing(baseHeight: 12),
+                // Bottom row: progress pill
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Tombol refresh
-                    GestureDetector(
-                      onTap: _isRefreshing ? null : _handleRefresh,
-                      child: Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Center(
-                          child: _isRefreshing
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppColors.primary,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.refresh_rounded,
-                                  color: AppColors.primary,
-                                  size: 22,
-                                ),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.padding(14),
+                        vertical: context.padding(8),
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        borderRadius:
+                            BorderRadius.circular(context.radius(22)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.30),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    // Tombol add
-                    GestureDetector(
-                      onTap: _selectedTab == 0 ? _openAddHabit : _openAddGoal,
-                      child: Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.38),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.add_rounded,
+                      child: Text(
+                        '${provider.completedToday} / ${provider.totalHabits}',
+                        style: GoogleFonts.poppins(
+                          fontSize: context.fontSize(13),
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
-                          size: 24,
                         ),
                       ),
                     ),
@@ -725,41 +565,260 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
 
-          // Tab switcher
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-            child: _buildTabs(),
+  Widget _buildNameSection(
+    auth_prov.AuthProvider authProv,
+    BuildContext context,
+  ) {
+    return GestureDetector(
+      onTap: () => _showProfileSheet(authProv),
+      child: Row(
+        children: [
+          Container(
+            width: context.iconSize(40),
+            height: context.iconSize(40),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(context.radius(14)),
+              border: authProv.isLoggedIn
+                  ? Border.all(
+                      color: Colors.greenAccent.withValues(
+                        alpha: 0.7,
+                      ),
+                      width: 1.5,
+                    )
+                  : null,
+            ),
+            child: Center(
+              child: authProv.isLoggedIn
+                  ? Icon(
+                      Icons.check_circle,
+                      color: Colors.greenAccent,
+                      size: context.iconSize(20),
+                    )
+                  : Text(
+                      '👋',
+                      style: TextStyle(fontSize: context.fontSize(18)),
+                    ),
+            ),
           ),
-
-          // Content
-          Expanded(
-            child: _buildTabContent(provider, sc),
+          SizedBox(width: context.padding(10)),
+          Flexible(
+            child: Text(
+              _userName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: context.fontSize(16),
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Bottom sheet ──────────────────────────────────────────────────────────
+  Widget _buildSheet(HabitProvider provider, ScrollController sc) {
+    return Builder(
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1A1A1A)
+              : Colors.white,
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(context.radius(32))),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 28,
+              offset: Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Drag handle area — large touch target for drag
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                // Tap handle to expand/collapse sheet
+                sc.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                );
+              },
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  vertical: context.padding(20),
+                  horizontal: context.padding(16),
+                ),
+                child: Column(
+                  children: [
+                    AnimatedBuilder(
+                      animation: _handlePulseAnim,
+                      builder: (ctx, child) {
+                        // Subtle scale + opacity pulse
+                        final scale = 1.0 + (_handlePulseAnim.value * 0.2);
+                        final opacity = 0.65 + (_handlePulseAnim.value * 0.2);
+                        return Transform.scale(
+                          scale: scale,
+                          child: Opacity(opacity: opacity, child: child),
+                        );
+                      },
+                      child: Container(
+                        width: context.padding(48),
+                        height: context.padding(5),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[350],
+                          borderRadius: BorderRadius.circular(
+                              context.radius(2.5)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // "Today" + add button
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                context.padding(22),
+                context.padding(14),
+                context.padding(22),
+                0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Hari ini',
+                    style: GoogleFonts.poppins(
+                      fontSize: context.fontSize(26),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      // Tombol refresh
+                      GestureDetector(
+                        onTap: _isRefreshing ? null : _handleRefresh,
+                        child: Container(
+                          width: context.iconSize(46),
+                          height: context.iconSize(46),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius:
+                                BorderRadius.circular(context.radius(15)),
+                          ),
+                          child: Center(
+                            child: _isRefreshing
+                                ? SizedBox(
+                                    width: context.iconSize(20),
+                                    height: context.iconSize(20),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primary,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.refresh_rounded,
+                                    color: AppColors.primary,
+                                    size: context.iconSize(22),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: context.padding(10)),
+                      // Tombol add
+                      GestureDetector(
+                        onTap: _selectedTab == 0 ? _openAddHabit : _openAddGoal,
+                        child: Container(
+                          width: context.iconSize(46),
+                          height: context.iconSize(46),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius:
+                                BorderRadius.circular(context.radius(15)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary
+                                    .withValues(alpha: 0.38),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: context.iconSize(24),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Tab switcher
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                context.padding(22),
+                context.padding(14),
+                context.padding(22),
+                0,
+              ),
+              child: _buildTabs(context),
+            ),
+
+            // Content
+            Expanded(
+              child: _buildTabContent(provider, sc),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // ── Tab switcher ──────────────────────────────────────────────────────────
-  Widget _buildTabs() {
+  Widget _buildTabs(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _tabPill('Daily habits', 0),
-          const SizedBox(width: 8),
-          _tabPill('Goals', 1),
-          const SizedBox(width: 8),
-          _tabPill('Memo', 2),
-          const SizedBox(width: 8),
-          _tabPill('Focus', 3),
+          _tabPill('Daily habits', 0, context),
+          SizedBox(width: context.padding(8)),
+          _tabPill('Goals', 1, context),
+          SizedBox(width: context.padding(8)),
+          _tabPill('Memo', 2, context),
+          SizedBox(width: context.padding(8)),
+          _tabPill('Focus', 3, context),
         ],
       ),
     );
   }
 
-  Widget _tabPill(String label, int index) {
+  Widget _tabPill(String label, int index, BuildContext context) {
     final isSelected = _selectedTab == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedTab = index),
@@ -767,11 +826,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.padding(16),
+              vertical: context.padding(10),
+            ),
             child: Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: context.fontSize(14),
                 fontWeight: FontWeight.w600,
                 color: AppColors.primary,
               ),
@@ -782,10 +844,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
             height: isSelected ? 3 : 0,
-            width: label.length * 8.0,
+            width: label.length * context.fontSize(8.0),
             decoration: BoxDecoration(
               color: AppColors.primary,
-              borderRadius: BorderRadius.circular(1.5),
+              borderRadius: BorderRadius.circular(context.radius(1.5)),
             ),
           ),
         ],

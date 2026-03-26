@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/app_router.dart';
 import 'data/models/habit_model.dart';
@@ -20,6 +21,7 @@ import 'data/providers/admin_provider.dart';
 import 'data/providers/notification_provider.dart';
 import 'data/providers/user_profile_provider.dart';
 import 'data/providers/theme_provider.dart';
+import 'data/providers/admob_provider.dart';
 import 'core/services/notification_service.dart';
 
 void main() async {
@@ -39,6 +41,9 @@ void main() async {
 
   // Init Notification Service
   await NotificationService().init();
+
+  // Init Google Mobile Ads (AdMob)
+  await MobileAds.instance.initialize();
 
   // Init Hive (local storage)
   await Hive.initFlutter();
@@ -82,6 +87,7 @@ void main() async {
           });
           return focusTimer;
         }),
+        ChangeNotifierProvider(create: (_) => AdMobProvider()..init()),
       ],
       child: const BisaProduktifApp(),
     ),

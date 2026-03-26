@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_responsive.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
@@ -115,7 +116,9 @@ class _LoginScreenState extends State<LoginScreen>
               );
             },
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.padding(24),
+              ),
               child: SizedBox(
                 height: MediaQuery.of(context).size.height - 100,
                 child: Column(
@@ -124,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen>
                     // Top Section - Logo
                     Column(
                       children: [
-                        const SizedBox(height: 40),
+                        SizedBox(height: context.padding(40)),
                         Center(child: _buildLogo()),
                       ],
                     ),
@@ -136,45 +139,45 @@ class _LoginScreenState extends State<LoginScreen>
                         Text(
                           'Ubah Produktivitasmu',
                           style: GoogleFonts.poppins(
-                            fontSize: 28,
+                            fontSize: context.fontSize(28),
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                             height: 1.3,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.padding(16)),
 
                         // Subheadline
                         Text(
                           'Raih goals, kumpulkan koin, tukar dengan reward impianmu. Mulai perjalanan produktifmu hari ini! 🚀',
                           style: GoogleFonts.poppins(
-                            fontSize: 15,
+                            fontSize: context.fontSize(15),
                             fontWeight: FontWeight.w400,
                             color: AppColors.textSecondary,
                             height: 1.5,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 32),
+                        SizedBox(height: context.padding(32)),
 
                         // Quick Stats
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _buildStatCard('10K+', 'Users Aktif'),
-                            _buildStatCard('50K+', 'Rewards Ditukar'),
-                            _buildStatCard('4.8⭐', 'Rating'),
+                            _buildStatCard('10K+', 'Users Aktif', context),
+                            _buildStatCard('50K+', 'Rewards Ditukar', context),
+                            _buildStatCard('4.8⭐', 'Rating', context),
                           ],
                         ),
-                        const SizedBox(height: 32),
+                        SizedBox(height: context.padding(32)),
 
                         // Benefits Section
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(context.padding(16)),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(context.radius(14)),
                             border: Border.all(
                               color: AppColors.primary.withValues(alpha: 0.2),
                             ),
@@ -182,11 +185,14 @@ class _LoginScreenState extends State<LoginScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildBenefitItem('✅', 'Tracking produktivitas real-time'),
-                              const SizedBox(height: 12),
-                              _buildBenefitItem('🎯', 'Goals tracker dengan AI tips'),
-                              const SizedBox(height: 12),
-                              _buildBenefitItem('🏆', 'Sistem reward yang menggiurkan'),
+                              _buildBenefitItem(
+                                  '✅', 'Tracking produktivitas real-time', context),
+                              SizedBox(height: context.padding(12)),
+                              _buildBenefitItem(
+                                  '🎯', 'Goals tracker dengan AI tips', context),
+                              SizedBox(height: context.padding(12)),
+                              _buildBenefitItem(
+                                  '🏆', 'Sistem reward yang menggiurkan', context),
                             ],
                           ),
                         ),
@@ -315,13 +321,16 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildStatCard(String value, String label) {
+  Widget _buildStatCard(String value, String label, BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: EdgeInsets.symmetric(
+          vertical: context.padding(12),
+          horizontal: context.padding(8),
+        ),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(context.radius(10)),
           border: Border.all(
             color: AppColors.primary.withValues(alpha: 0.15),
           ),
@@ -331,16 +340,16 @@ class _LoginScreenState extends State<LoginScreen>
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 16,
+                fontSize: context.fontSize(16),
                 fontWeight: FontWeight.w700,
                 color: AppColors.primary,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: context.padding(4)),
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 11,
+                fontSize: context.fontSize(11),
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
               ),
@@ -352,16 +361,16 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildBenefitItem(String icon, String text) {
+  Widget _buildBenefitItem(String icon, String text, BuildContext context) {
     return Row(
       children: [
-        Text(icon, style: const TextStyle(fontSize: 20)),
-        const SizedBox(width: 12),
+        Text(icon, style: TextStyle(fontSize: context.fontSize(20))),
+        SizedBox(width: context.padding(12)),
         Expanded(
           child: Text(
             text,
             style: GoogleFonts.poppins(
-              fontSize: 13,
+              fontSize: context.fontSize(13),
               fontWeight: FontWeight.w500,
               color: AppColors.textPrimary,
             ),
@@ -372,28 +381,30 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildLogo() {
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: 'bisa',
-            style: GoogleFonts.poppins(
-              fontSize: 40,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-              letterSpacing: -1,
+    return Builder(
+      builder: (context) => RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: 'bisa',
+              style: GoogleFonts.poppins(
+                fontSize: context.fontSize(40),
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -1,
+              ),
             ),
-          ),
-          TextSpan(
-            text: 'produktif',
-            style: GoogleFonts.poppins(
-              fontSize: 40,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-              letterSpacing: -1,
+            TextSpan(
+              text: 'produktif',
+              style: GoogleFonts.poppins(
+                fontSize: context.fontSize(40),
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+                letterSpacing: -1,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

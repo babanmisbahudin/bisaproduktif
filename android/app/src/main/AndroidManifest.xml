@@ -7,10 +7,18 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
+    <!-- Internet (required for AdMob) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="bisaproduktif"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- AdMob App ID (test ID, replace with production ID from AdMob dashboard) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099954163~3347511713"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

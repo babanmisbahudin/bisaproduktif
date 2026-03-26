@@ -117,6 +117,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         preferredSize: const Size.fromHeight(48),
         child: TabBar(
           controller: _tabController,
+          isScrollable: true,
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withValues(alpha: 0.6),

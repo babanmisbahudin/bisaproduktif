@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/onboarding/screens/splash_screen.dart';
-import '../../features/onboarding/screens/onboarding_name_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import 'app_transition.dart';
@@ -36,20 +35,7 @@ class AppRouter {
         ),
       ),
 
-      // Onboarding Name: slide dari kanan (deprecated, kept for compatibility)
-      GoRoute(
-        path: '/onboarding/name',
-        name: 'onboarding-name',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const OnboardingNameScreen(),
-          transitionDuration: const Duration(milliseconds: 380),
-          reverseTransitionDuration: const Duration(milliseconds: 280),
-          transitionsBuilder: AppTransition.slideRightTransition,
-        ),
-      ),
-
-      // Home: fade masuk (dari onboarding terasa seperti "dunia terbuka")
+      // Home: fade masuk (dari login terasa seperti "dunia terbuka")
       GoRoute(
         path: '/home',
         name: 'home',

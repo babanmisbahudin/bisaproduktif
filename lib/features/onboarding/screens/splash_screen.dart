@@ -38,17 +38,17 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final isOnboarded = prefs.getBool('is_onboarded') ?? false;
+    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
 
     if (!mounted) return;
-    if (isOnboarded) {
+    if (isLoggedIn) {
       context.go('/home');
     } else {
-      context.go('/onboarding/name');
+      context.go('/login');
     }
   }
 

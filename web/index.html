@@ -1,46 +1,381 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kebijakan Privasi BisaProduktif</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
 
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="$FLUTTER_BASE_HREF">
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+        }
 
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+        header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
 
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="bisaproduktif">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+        header p {
+            color: #666;
+            font-size: 0.95em;
+        }
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+        h2 {
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+        }
 
-  <title>bisaproduktif</title>
-  <link rel="manifest" href="manifest.json">
+        h3 {
+            color: #764ba2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        p {
+            margin-bottom: 15px;
+            line-height: 1.8;
+            color: #444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .highlight {
+            background: #f0f4ff;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .highlight strong {
+            color: #667eea;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+            border-bottom: 1px solid #667eea;
+        }
+
+        a:hover {
+            color: #764ba2;
+        }
+
+        .contact-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .contact-info strong {
+            color: #856404;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            margin-right: 5px;
+        }
+
+        .mobile-friendly {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            h2 {
+                font-size: 1.2em;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            table th, table td {
+                padding: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+    <div class="container">
+        <header>
+            <h1>🛡️ Kebijakan Privasi BisaProduktif</h1>
+            <p>Terakhir diperbarui: Maret 2026</p>
+        </header>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+        <section>
+            <h2>📌 Pendahuluan</h2>
+            <p>BisaProduktif ("Aplikasi") berkomitmen untuk melindungi privasi Anda. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan melindungi data Anda.</p>
+        </section>
+
+        <section>
+            <h2>1. Informasi yang Kami Kumpulkan</h2>
+
+            <h3>A. Informasi yang Anda Berikan</h3>
+            <ul>
+                <li><strong>Nama Pengguna</strong> - saat registrasi/login</li>
+                <li><strong>Gender</strong> - untuk personalisasi avatar</li>
+                <li><strong>Nomor WhatsApp</strong> - untuk reward redemption verification</li>
+                <li><strong>Email</strong> - melalui Google Sign-In (opsional)</li>
+            </ul>
+
+            <h3>B. Informasi yang Dikumpulkan Otomatis</h3>
+            <ul>
+                <li><strong>Data Penggunaan</strong> - aktivitas di app (habits, goals, rewards)</li>
+                <li><strong>Device Information</strong> - jenis device, OS version</li>
+                <li><strong>Lokasi (IP-based)</strong> - untuk deteksi cuaca, bukan GPS</li>
+                <li><strong>Crash Reports & Analytics</strong> - untuk improve performance</li>
+            </ul>
+
+            <h3>C. Data Iklan</h3>
+            <p>Ketika Anda menonton iklan AdMob:</p>
+            <ul>
+                <li><strong>Watch Duration</strong> - berapa lama Anda menonton</li>
+                <li><strong>Ad Interaction</strong> - apakah Anda click atau skip iklan</li>
+                <li><strong>Ad ID</strong> - untuk tie ke reward system</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>2. Bagaimana Kami Menggunakan Data</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Kegunaan</th>
+                        <th>Dasar Hukum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Nama, Gender</td>
+                        <td>Personalisasi experience</td>
+                        <td>Kontrak</td>
+                    </tr>
+                    <tr>
+                        <td>WhatsApp</td>
+                        <td>Reward verification</td>
+                        <td>Kontrak</td>
+                    </tr>
+                    <tr>
+                        <td>Aktivitas (habits/goals)</td>
+                        <td>Core app functionality</td>
+                        <td>Kontrak</td>
+                    </tr>
+                    <tr>
+                        <td>Analytics</td>
+                        <td>Improve app performance</td>
+                        <td>Legitimate Interest</td>
+                    </tr>
+                    <tr>
+                        <td>Iklan viewing</td>
+                        <td>Award coins, track anti-fraud</td>
+                        <td>Kontrak</td>
+                    </tr>
+                    <tr>
+                        <td>Email (Google Sign-In)</td>
+                        <td>Backup data ke cloud</td>
+                        <td>Consent</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>3. Third-Party Services</h2>
+
+            <h3>🎯 Google AdMob</h3>
+            <ul>
+                <li><strong>Purpose:</strong> Display iklan, reward system</li>
+                <li><strong>Data shared:</strong> Ad interaction, watch duration</li>
+                <li><strong>Privacy:</strong> <a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
+                <li><strong>Opt-out:</strong> Settings → Privacy → Reject Personalized Ads</li>
+            </ul>
+
+            <h3>🔥 Firebase (Google)</h3>
+            <ul>
+                <li><strong>Purpose:</strong> User authentication, data backup, analytics</li>
+                <li><strong>Data shared:</strong> User profile, activity logs</li>
+                <li><strong>Privacy:</strong> <a href="https://firebase.google.com/support/privacy" target="_blank">Firebase Privacy</a></li>
+            </ul>
+
+            <h3>📊 Google Analytics</h3>
+            <ul>
+                <li><strong>Purpose:</strong> Track app usage, crash reporting</li>
+                <li><strong>Data shared:</strong> Device info, crash logs, analytics events</li>
+                <li><strong>Privacy:</strong> <a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
+            </ul>
+
+            <h3>🌤️ OpenWeatherMap API</h3>
+            <ul>
+                <li><strong>Purpose:</strong> Weather data untuk scene background</li>
+                <li><strong>Data shared:</strong> Approximate location (IP-based only)</li>
+                <li><strong>Privacy:</strong> <a href="https://openweathermap.org/privacy" target="_blank">OpenWeatherMap Privacy</a></li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>4. Data Security</h2>
+            <p>Kami menerapkan:</p>
+            <ul>
+                <li><span class="badge">✅</span> <strong>SSL/TLS Encryption</strong> - semua komunikasi dengan server dienkripsi</li>
+                <li><span class="badge">✅</span> <strong>Firebase Security Rules</strong> - database hanya accessible oleh owner</li>
+                <li><span class="badge">✅</span> <strong>No Password Stored Locally</strong> - gunakan Google Sign-In atau session token</li>
+                <li><span class="badge">✅</span> <strong>Anti-Fraud Detection</strong> - trust score system untuk deteksi suspicious activity</li>
+                <li><span class="badge">✅</span> <strong>Server-Side Validation</strong> - coin transactions diverifikasi di backend</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>5. Data Retention</h2>
+            <ul>
+                <li><strong>User Data:</strong> Disimpan selama akun aktif</li>
+                <li><strong>Activity Logs:</strong> Disimpan maksimal 90 hari untuk audit</li>
+                <li><strong>Crash Reports:</strong> Disimpan 30 hari untuk debugging</li>
+                <li><strong>Deleted Account:</strong> Soft-deleted (data tetap di backup), hard-delete setelah 90 hari</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>6. Your Privacy Rights (GDPR/EEA)</h2>
+            <p>Jika Anda berada di EEA, UK, atau Switzerland:</p>
+            <ul>
+                <li><strong>Right to Access:</strong> Request data apa yang kami simpan tentang Anda</li>
+                <li><strong>Right to Rectification:</strong> Minta kami update data yang tidak akurat</li>
+                <li><strong>Right to Erasure:</strong> "Right to be forgotten" - minta hapus semua data</li>
+                <li><strong>Right to Data Portability:</strong> Download data Anda dalam format standar</li>
+                <li><strong>Right to Withdraw Consent:</strong> Ubah preference iklan kapan saja</li>
+            </ul>
+
+            <div class="contact-info">
+                <strong>📧 Cara Exercise Your Rights:</strong><br>
+                Email: <strong>babanmisbahudin200@gmail.com</strong> dengan:<br>
+                • Full name & user ID<br>
+                • Type of request (access/delete/export)<br>
+                • Response dalam 30 hari
+            </div>
+        </section>
+
+        <section>
+            <h2>7. Children's Privacy</h2>
+            <p>BisaProduktif tidak menerima users di bawah 13 tahun (16 tahun untuk EEA). Jika kami tahu ada child yang register, kami akan delete akun + data mereka.</p>
+        </section>
+
+        <section>
+            <h2>8. Consent Management</h2>
+            <p>Saat membuka aplikasi, Anda akan diminta memberikan consent untuk:</p>
+            <ol>
+                <li><strong>Essential Data</strong> - Required for app to function (nama, aktivitas)</li>
+                <li><strong>Analytics</strong> - Help improve app performance</li>
+                <li><strong>Personalized Ads</strong> - Show relevant ads based on interest</li>
+            </ol>
+            <p>Anda dapat mengubah preference kapan saja di:<br>
+            <strong>Settings → Privacy → Change Consent Preferences</strong></p>
+        </section>
+
+        <section>
+            <h2>9. Contact Us</h2>
+            <div class="highlight">
+                <strong>📧 Privacy Officer Email:</strong><br>
+                <a href="mailto:babanmisbahudin200@gmail.com">babanmisbahudin200@gmail.com</a>
+                <br><br>
+                <strong>🌐 Untuk AdMob-related questions:</strong><br>
+                <a href="https://support.google.com/admob" target="_blank">Google AdMob Help</a>
+                <br><br>
+                <strong>⚖️ Untuk GDPR complaints (EEA):</strong><br>
+                Contact your local Data Protection Authority
+            </div>
+        </section>
+
+        <footer>
+            <p>Versi: 1.0 | Effective Date: Maret 2026 | Language: Indonesian</p>
+            <p>© 2026 BisaProduktif. Semua hak dilindungi.</p>
+        </footer>
+    </div>
 </body>
 </html>

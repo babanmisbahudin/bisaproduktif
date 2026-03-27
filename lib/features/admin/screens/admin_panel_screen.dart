@@ -2531,7 +2531,7 @@ class _AddRewardSheetState extends State<_AddRewardSheet> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: selectedCategory,
+              initialValue: selectedCategory,
               items: categories
                   .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
                   .toList(),

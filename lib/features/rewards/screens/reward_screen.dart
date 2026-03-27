@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/widgets/bottom_navbar_widget.dart';
-import '../../../core/widgets/ad_pre_animation_widget.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/auth_provider.dart';
@@ -12,7 +11,6 @@ import '../../../data/providers/admob_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/reward_provider.dart';
 import '../../../data/providers/user_profile_provider.dart';
-import '../../../core/widgets/dynamic_scene_painter.dart';
 import '../widgets/reward_card.dart';
 
 class RewardScreen extends StatefulWidget {
@@ -437,24 +435,9 @@ class _RewardScreenState extends State<RewardScreen> {
       return;
     }
 
-    // Show pre-animation overlay
+    // Show ad directly
     if (context.mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => Dialog(
-          insetPadding: EdgeInsets.zero,
-          backgroundColor: Colors.transparent,
-          child: AdPreAnimationWidget(
-            weather: WeatherType.clear,
-            sceneTime: SceneTime.morning,
-            onAnimationComplete: () {
-              Navigator.pop(dialogContext);
-              _showAdAndAward(context, adMobProvider, habitProvider);
-            },
-          ),
-        ),
-      );
+      _showAdAndAward(context, adMobProvider, habitProvider);
     }
   }
 

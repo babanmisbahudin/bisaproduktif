@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/consent_service.dart';
+import '../../../core/widgets/consent_dialog.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -39,6 +41,29 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _navigate() async {
     await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    final hasConsent = await ConsentService.hasConsent();
+
+    // Show consent dialog jika belum consent
+    if (!hasConsent && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => ConsentDialog(
+          onConsentGiven: () {
+            // Setelah consent diberikan, lanjut navigate
+            _proceedNavigation();
+          },
+        ),
+      );
+      return;
+    }
+
+    _proceedNavigation();
+  }
+
+  Future<void> _proceedNavigation() async {
     if (!mounted) return;
 
     final prefs = await SharedPreferences.getInstance();

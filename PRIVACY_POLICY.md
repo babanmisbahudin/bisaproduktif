@@ -89,7 +89,7 @@ Jika Anda berada di EEA, UK, atau Switzerland:
 - **Right to Withdraw Consent**: Ubah preference iklan kapan saja
 
 **Cara Exercise Your Rights:**
-Email: [your-email@domain.com] dengan:
+Email: babanmisbahudin200@gmail.com dengan:
 - Full name & user ID
 - Type of request (access/delete/export)
 - Attachment ID jika available
@@ -109,7 +109,7 @@ Kami mungkin update policy ini kapan saja. Perubahan material akan:
 
 ## 9. Contact Us
 
-**Privacy Officer Email**: [your-email@domain.com]
+**Privacy Officer Email**: babanmisbahudin200@gmail.com
 
 **Untuk AdMob-related questions:**
 - Google AdMob Help: https://support.google.com/admob

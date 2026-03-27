@@ -473,7 +473,6 @@ class FocusTimerProvider extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
-    _musicService.dispose();
     super.dispose();
   }
 }

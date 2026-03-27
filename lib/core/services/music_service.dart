@@ -42,26 +42,8 @@ class MusicService {
     }
   }
 
-  /// Pause music
-  Future<void> pauseMusic() async {
-    await _audioPlayer.pause();
-  }
-
-  /// Resume music
-  Future<void> resumeMusic() async {
-    await _audioPlayer.play();
-  }
-
   /// Stop music completely
   Future<void> stopMusic() async {
     await _audioPlayer.stop();
-  }
-
-  /// Check if music is playing
-  bool get isPlaying => _audioPlayer.playing;
-
-  /// Dispose resources
-  Future<void> dispose() async {
-    await _audioPlayer.dispose();
   }
 }

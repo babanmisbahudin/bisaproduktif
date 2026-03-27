@@ -233,18 +233,4 @@ class WeatherService {
     await prefs.setString('owm_api_key', key);
     _lastFetch = null; // Force refresh
   }
-
-  /// Clear API key
-  static Future<void> clearApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('owm_api_key');
-    _cachedData = null;
-    _lastFetch = null;
-  }
-
-  /// Get API key saat ini
-  static Future<String?> getApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('owm_api_key');
-  }
 }

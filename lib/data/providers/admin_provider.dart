@@ -432,4 +432,50 @@ class AdminProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  // ── USER MANAGEMENT ─────────────────────────────────────────────────────────
+
+  /// Hapus user dari sistem (dari Firestore + local storage)
+  Future<bool> deleteUser(String uid) async {
+    try {
+      await FirebaseService.deleteUser(uid);
+      _allUsers.removeWhere((u) => u['uid'] == uid);
+      notifyListeners();
+      debugPrint('[Admin] User deleted successfully: $uid');
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error deleting user: $e');
+      return false;
+    }
+  }
+
+  /// Reset/hapus semua reward points (coins) user
+  Future<bool> resetUserCoins(String uid) async {
+    try {
+      await FirebaseService.resetUserCoins(uid);
+      // Update local list
+      final userIndex = _allUsers.indexWhere((u) => u['uid'] == uid);
+      if (userIndex >= 0) {
+        _allUsers[userIndex]['totalCoins'] = 0;
+        notifyListeners();
+      }
+      debugPrint('[Admin] User coins reset: $uid');
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error resetting user coins: $e');
+      return false;
+    }
+  }
+
+  /// Reset reward transactions user (hapus riwayat transaksi reward)
+  Future<bool> clearUserRewardHistory(String uid) async {
+    try {
+      await FirebaseService.clearUserRewardTransactions(uid);
+      debugPrint('[Admin] User reward history cleared: $uid');
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error clearing reward history: $e');
+      return false;
+    }
+  }
 }

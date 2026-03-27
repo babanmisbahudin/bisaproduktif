@@ -464,6 +464,143 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               ),
             ),
           ],
+          // Action buttons
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Reset coins button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showConfirmDialog(
+                    title: 'Reset Coins',
+                    message: 'Hapus semua reward points user ini?',
+                    onConfirm: () async {
+                      final adminProv = context.read<AdminProvider>();
+                      final uid = user['uid'] as String;
+                      final ok = await adminProv.resetUserCoins(uid);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? '✓ Coins reset' : '✗ Error'),
+                            backgroundColor: ok ? Colors.green : Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  icon: const Icon(Icons.currency_exchange, size: 16),
+                  label: Text(
+                    'Reset Coins',
+                    style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade500,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Clear reward history button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showConfirmDialog(
+                    title: 'Clear History',
+                    message: 'Hapus riwayat transaksi reward user?',
+                    onConfirm: () async {
+                      final adminProv = context.read<AdminProvider>();
+                      final uid = user['uid'] as String;
+                      final ok = await adminProv.clearUserRewardHistory(uid);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? '✓ History cleared' : '✗ Error'),
+                            backgroundColor: ok ? Colors.green : Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: Text(
+                    'Clear History',
+                    style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade500,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Delete user button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showConfirmDialog(
+                    title: 'Delete User',
+                    message: 'Hapus user ini selamanya? Tindakan tidak bisa dibatalkan!',
+                    isDestructive: true,
+                    onConfirm: () async {
+                      final adminProv = context.read<AdminProvider>();
+                      final uid = user['uid'] as String;
+                      final ok = await adminProv.deleteUser(uid);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? '✓ User deleted' : '✗ Error'),
+                            backgroundColor: ok ? Colors.green : Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  icon: const Icon(Icons.delete, size: 16),
+                  label: Text(
+                    'Delete',
+                    style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Helper dialog untuk konfirmasi aksi admin
+  void _showConfirmDialog({
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+    bool isDestructive = false,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDestructive ? AppColors.danger : AppColors.primary,
+            ),
+            child: Text(isDestructive ? 'Hapus' : 'Ya'),
+          ),
         ],
       ),
     );

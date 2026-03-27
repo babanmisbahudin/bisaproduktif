@@ -301,4 +301,49 @@ class FirebaseService {
       });
     } catch (_) {}
   }
+
+  // ── ADMIN USER MANAGEMENT ────────────────────────────────────────────────
+
+  /// Hapus user dari Firestore (admin only)
+  static Future<void> deleteUser(String uid) async {
+    if (!isLoggedIn) return;
+    try {
+      // Soft delete - set isActive=false untuk preserve audit trail
+      await _db.collection('users').doc(uid).update({
+        'isActive': false,
+        'deletedAt': FieldValue.serverTimestamp(),
+        'deletedBy': userId,
+      });
+    } catch (_) {}
+  }
+
+  /// Reset semua coins user ke 0 (admin only)
+  static Future<void> resetUserCoins(String uid) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(uid).update({
+        'totalCoins': 0,
+        'coinsResetAt': FieldValue.serverTimestamp(),
+        'coinsResetBy': userId,
+      });
+    } catch (_) {}
+  }
+
+  /// Hapus semua reward transactions user (admin only)
+  static Future<void> clearUserRewardTransactions(String uid) async {
+    if (!isLoggedIn) return;
+    try {
+      // Delete transactions subcollection
+      final batch = _db.batch();
+      final transactionsSnap = await _db
+          .collection('users')
+          .doc(uid)
+          .collection('transactions')
+          .get();
+      for (final doc in transactionsSnap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (_) {}
+  }
 }

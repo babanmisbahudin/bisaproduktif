@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/models/transaction_model.dart';
@@ -43,7 +44,9 @@ class FirebaseService {
         'totalCoins': totalCoins,
         'lastSync': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   // ── Activity Log (Anti-Fraud) ───────────────────────────────────────────
@@ -65,7 +68,9 @@ class FirebaseService {
         'timestamp': FieldValue.serverTimestamp(),
         'data': data,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Log aksi admin ke activity_log (untuk audit trail)
@@ -88,7 +93,9 @@ class FirebaseService {
         'timestamp': FieldValue.serverTimestamp(),
         'data': data,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   // ── Fetch User Data ─────────────────────────────────────────────────────
@@ -106,12 +113,16 @@ class FirebaseService {
 
   // ── Admin: Get All Users ────────────────────────────────────────────────────
 
-  /// Ambil semua user dari Firestore untuk admin dashboard.
+  /// Ambil semua user AKTIF dari Firestore untuk admin dashboard.
+  /// Filter: isActive != false (exclude soft-deleted users)
   /// Returns list of {uid, name, totalCoins, trustScore, gender, whatsapp, lastSync}
   static Future<List<Map<String, dynamic>>> getAllUsers() async {
     if (!isLoggedIn) return [];
     try {
-      final snapshot = await _db.collection('users').get();
+      final snapshot = await _db
+          .collection('users')
+          .where('isActive', isNotEqualTo: false)
+          .get();
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return {
@@ -125,7 +136,8 @@ class FirebaseService {
           'isBlocked': data['isBlocked'] ?? false,
         };
       }).toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Firebase] Error fetching users: $e');
       return [];
     }
   }
@@ -153,7 +165,9 @@ class FirebaseService {
         'approvedAt': tx.approvedAt,
         'rejectionReason': tx.rejectionReason,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Ambil semua pending redemption dari Firestore untuk admin
@@ -195,13 +209,18 @@ class FirebaseService {
   }) async {
     if (!isLoggedIn) return;
     try {
-      await _db.collection('redemptions').doc(transactionId).update({
+      final updateData = {
         'status': status,
         'approvedBy': adminEmail,
         'approvedAt': FieldValue.serverTimestamp(),
-        'rejectionReason': ?rejectionReason,
-      });
-    } catch (_) {}
+      };
+      if (rejectionReason != null) {
+        updateData['rejectionReason'] = rejectionReason;
+      }
+      await _db.collection('redemptions').doc(transactionId).update(updateData);
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   // ── Admin: User Management ───────────────────────────────────────────────────
@@ -213,7 +232,9 @@ class FirebaseService {
       await _db.collection('users').doc(uid).set({
         'isBlocked': true,
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Unblock a user untuk redeem rewards
@@ -223,7 +244,9 @@ class FirebaseService {
       await _db.collection('users').doc(uid).set({
         'isBlocked': false,
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Update user trust score dengan alasan dari admin
@@ -239,7 +262,9 @@ class FirebaseService {
         'trustScoreReason': reason,
         'trustScoreUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Check apakah user sedang diblokir (untuk redemption guard)
@@ -281,7 +306,9 @@ class FirebaseService {
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Update existing reward (admin only)
@@ -289,7 +316,9 @@ class FirebaseService {
     if (!isLoggedIn) return;
     try {
       await _db.collection('rewards').doc(reward.id).update(reward.toMap());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Delete reward - soft delete (set isActive=false) untuk preserve history
@@ -299,7 +328,9 @@ class FirebaseService {
       await _db.collection('rewards').doc(rewardId).update({
         'isActive': false,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   // ── ADMIN USER MANAGEMENT ────────────────────────────────────────────────
@@ -314,7 +345,9 @@ class FirebaseService {
         'deletedAt': FieldValue.serverTimestamp(),
         'deletedBy': userId,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Reset semua coins user ke 0 (admin only)
@@ -326,7 +359,9 @@ class FirebaseService {
         'coinsResetAt': FieldValue.serverTimestamp(),
         'coinsResetBy': userId,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 
   /// Hapus semua reward transactions user (admin only)
@@ -344,6 +379,8 @@ class FirebaseService {
         batch.delete(doc.reference);
       }
       await batch.commit();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Firebase] Error: $e');
+    }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/consent_service.dart';
 import '../../../core/widgets/consent_dialog.dart';
@@ -24,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 800),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -40,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
     final hasConsent = await ConsentService.hasConsent();
@@ -67,8 +68,11 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
     final welcomeShown = prefs.getBool('welcome_shown') ?? false;
+
+    // Check Firebase Auth session (auto-restored jika user pernah login sebelumnya)
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isLoggedIn = currentUser != null;
 
     if (!mounted) return;
     if (isLoggedIn) {

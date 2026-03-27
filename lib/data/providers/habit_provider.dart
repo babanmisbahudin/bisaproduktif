@@ -57,6 +57,10 @@ class HabitProvider extends ChangeNotifier {
   }
 
   void _loadHabits() {
+    if (!_isLoaded) {
+      debugPrint('[Habit] _loadHabits called before init() - ignoring');
+      return;
+    }
     _habits = _box.values.toList()
       ..sort((a, b) => a.order.compareTo(b.order));
     // No auto-seed: user baru mulai dengan habit kosong, buat goal untuk auto-generate

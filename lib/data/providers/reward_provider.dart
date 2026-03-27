@@ -34,7 +34,7 @@ class RewardItem {
     'description': description,
     'price': price,
     'category': category,
-    'colorValue': color.value, // int (ARGB), e.g. 0xFF6F4E37
+    'colorValue': color.toARGB32(), // int (ARGB), e.g. 0xFF6F4E37
   };
 
   // Construct dari Firestore doc
@@ -54,10 +54,12 @@ class RewardItem {
 enum RedeemResult {
   success,
   insufficientCoins,
-  trustFrozen,    // trust score < 40, koin dibekukan
-  trustLimited,   // trust score 40-59, limit 500 koin/hari
+  trustFrozen,        // trust score < 40, koin dibekukan
+  trustLimited,       // trust score 40-59, limit 500 koin/hari
   dailyLimitExceeded,
-  blocked,        // user diblokir oleh admin
+  blocked,            // user diblokir oleh admin
+  alreadyRequested,   // duplicate pending redemption
+  tooManyPending,     // terlalu banyak redemption pending
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────
@@ -206,13 +208,13 @@ class RewardProvider extends ChangeNotifier {
         t.rewardId == reward.id && t.userId == userId);
     if (hasDuplicate) {
       debugPrint('[Anti-Fraud] Duplicate pending redemption detected for reward ${reward.id}');
-      return RedeemResult.success; // Terima tapi jangan proses (silent fail)
+      return RedeemResult.alreadyRequested; // Return proper error
     }
 
     // Anti-fraud: max 3 pending sekaligus
     if (pendingRedemptions.length >= _maxPendingRedemptions) {
       debugPrint('[Anti-Fraud] Max pending redemptions reached (${pendingRedemptions.length})');
-      return RedeemResult.success; // Silent fail
+      return RedeemResult.tooManyPending; // Return proper error
     }
 
     // Anti-fraud: cek cooldown 5 menit

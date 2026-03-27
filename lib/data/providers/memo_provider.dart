@@ -57,34 +57,46 @@ class MemoProvider extends ChangeNotifier {
     required String content,
     String? voiceFilePath,
   }) async {
-    final memo = _memos.firstWhere((m) => m.id == memoId);
-    memo.content = content.trim();
-    if (voiceFilePath != null) memo.voiceFilePath = voiceFilePath;
-    memo.updatedAt = DateTime.now();
+    try {
+      final memo = _memos.firstWhere((m) => m.id == memoId);
+      memo.content = content.trim();
+      if (voiceFilePath != null) memo.voiceFilePath = voiceFilePath;
+      memo.updatedAt = DateTime.now();
 
-    await _box.put(memoId, memo);
-    _sortMemos();
-    notifyListeners();
+      await _box.put(memoId, memo);
+      _sortMemos();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[Memo] Error updating memo $memoId: $e');
+    }
   }
 
   /// Archive memo
   Future<void> archiveMemo(String memoId) async {
-    final memo = _memos.firstWhere((m) => m.id == memoId);
-    memo.isArchived = true;
-    memo.updatedAt = DateTime.now();
+    try {
+      final memo = _memos.firstWhere((m) => m.id == memoId);
+      memo.isArchived = true;
+      memo.updatedAt = DateTime.now();
 
-    await _box.put(memoId, memo);
-    notifyListeners();
+      await _box.put(memoId, memo);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[Memo] Error archiving memo $memoId: $e');
+    }
   }
 
   /// Unarchive memo
   Future<void> unarchiveMemo(String memoId) async {
-    final memo = _memos.firstWhere((m) => m.id == memoId);
-    memo.isArchived = false;
-    memo.updatedAt = DateTime.now();
+    try {
+      final memo = _memos.firstWhere((m) => m.id == memoId);
+      memo.isArchived = false;
+      memo.updatedAt = DateTime.now();
 
-    await _box.put(memoId, memo);
-    notifyListeners();
+      await _box.put(memoId, memo);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[Memo] Error unarchiving memo $memoId: $e');
+    }
   }
 
   /// Delete memo permanently

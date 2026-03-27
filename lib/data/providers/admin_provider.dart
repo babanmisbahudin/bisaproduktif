@@ -453,12 +453,8 @@ class AdminProvider extends ChangeNotifier {
   Future<bool> resetUserCoins(String uid) async {
     try {
       await FirebaseService.resetUserCoins(uid);
-      // Update local list
-      final userIndex = _allUsers.indexWhere((u) => u['uid'] == uid);
-      if (userIndex >= 0) {
-        _allUsers[userIndex]['totalCoins'] = 0;
-        notifyListeners();
-      }
+      // Refresh dari Firebase untuk ensure data latest
+      await fetchAllUsers();
       debugPrint('[Admin] User coins reset: $uid');
       return true;
     } catch (e) {

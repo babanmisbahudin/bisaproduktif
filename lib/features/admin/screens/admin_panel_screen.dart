@@ -485,6 +485,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                             backgroundColor: ok ? Colors.green : Colors.red,
                           ),
                         );
+                        if (ok) await adminProv.fetchAllUsers();
                       }
                     },
                   ),
@@ -518,6 +519,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                             backgroundColor: ok ? Colors.green : Colors.red,
                           ),
                         );
+                        if (ok) await adminProv.fetchAllUsers();
                       }
                     },
                   ),
@@ -552,6 +554,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                             backgroundColor: ok ? Colors.green : Colors.red,
                           ),
                         );
+                        if (ok) await adminProv.fetchAllUsers();
                       }
                     },
                   ),

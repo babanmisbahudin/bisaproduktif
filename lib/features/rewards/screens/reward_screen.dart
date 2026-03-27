@@ -772,6 +772,12 @@ class _RewardScreenState extends State<RewardScreen> {
       case RedeemResult.blocked:
         _showSnack('🚫 Akun diblokir. Hubungi admin untuk info lebih lanjut.', AppColors.danger);
         break;
+      case RedeemResult.alreadyRequested:
+        _showSnack('Kamu sudah request reward ini. Tunggu approval admin 📋', AppColors.warning);
+        break;
+      case RedeemResult.tooManyPending:
+        _showSnack('Terlalu banyak request pending. Tunggu approval terlebih dahulu ⏳', AppColors.warning);
+        break;
     }
   }
 

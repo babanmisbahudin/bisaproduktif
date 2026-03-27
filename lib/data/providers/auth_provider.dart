@@ -87,13 +87,24 @@ class AuthProvider extends ChangeNotifier {
   /// Logout dan reset semua data (coins, habits, goals)
   Future<void> signOut() async {
     try {
-      // Save coins to Firebase sebelum logout
+      // Get current coins & trust score dari SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final currentCoins = prefs.getInt('user_coins') ?? 0;
+      final currentTrustScore = prefs.getInt('trust_score') ?? 70;
+
+      // Save actual coins & trust score to Firebase sebelum logout
       await FirebaseService.saveUserProfile(
-        name: '',
-        gender: 'male',
-        totalCoins: 0, // Reset coins saat logout
-        trustScore: 70,
+        name: _user?.displayName ?? '',
+        gender: prefs.getString('user_gender') ?? 'male',
+        totalCoins: currentCoins,
+        trustScore: currentTrustScore,
       );
+
+      // Clear local data setelah Firebase save
+      await prefs.remove('user_coins');
+      await prefs.remove('trust_score');
+      await prefs.remove('user_name');
+      await prefs.remove('user_gender');
     } catch (e) {
       debugPrint('[Auth] Failed to save data to Firebase: $e');
     }

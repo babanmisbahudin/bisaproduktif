@@ -24,7 +24,7 @@ class AdMobProvider extends ChangeNotifier {
   Future<(bool, String)> checkEligibility() async {
     final result = await _adMobService.checkEligibility();
     _eligibilityError = result.$2;
-    if (_eligibilityError!.isNotEmpty) {
+    if (_eligibilityError != null && _eligibilityError!.isNotEmpty) {
       notifyListeners();
       return result;
     }

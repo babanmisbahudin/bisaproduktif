@@ -87,7 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final adminProvider = context.watch<AdminProvider>();
-    final profileProvider = context.watch<UserProfileProvider>();
 
     return Scaffold(
       backgroundColor: _getBackgroundColor(context),
@@ -100,35 +99,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildGoogleAccountCard(authProvider)
           else
             _buildLoginCard(context, authProvider),
-
-          const SizedBox(height: 16),
-
-          // ── Profile Section ────────────────────────────────────────────────
-          _buildProfileInfoCard(profileProvider),
-
-          const SizedBox(height: 16),
-
-          // ── Edit Profile Button (hanya jika login) ──────────────────────────
-          if (authProvider.isLoggedIn)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: () => _showEditProfileDialog(context, profileProvider),
-                icon: const Icon(Icons.edit),
-                label: Text(
-                  'Edit Profil',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
 
           const SizedBox(height: 20),
 
@@ -472,55 +442,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileInfoCard(UserProfileProvider profileProvider) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _getContainerColor(context),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Data Pribadi',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: _getTextPrimaryColor(context),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildProfileField(
-            icon: Icons.person,
-            label: 'Nama',
-            value: profileProvider.name.isEmpty ? 'Belum diisi' : profileProvider.name,
-          ),
-          const SizedBox(height: 12),
-          _buildProfileField(
-            icon: Icons.location_on,
-            label: 'Alamat',
-            value: profileProvider.address.isEmpty ? 'Belum diisi' : profileProvider.address,
-          ),
-          const SizedBox(height: 12),
-          _buildProfileField(
-            icon: Icons.phone,
-            label: 'WhatsApp',
-            value: profileProvider.whatsapp.isEmpty ? 'Belum diisi' : profileProvider.whatsapp,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildProfileField({
     required IconData icon,
     required String label,
@@ -556,6 +477,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
+
 
   /// Build Google Account Card (Readonly)
   Widget _buildGoogleAccountCard(AuthProvider authProvider) {
@@ -704,142 +626,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  void _showEditProfileDialog(BuildContext context, UserProfileProvider profileProvider) {
-    final nameCtrl = TextEditingController(text: profileProvider.name);
-    final addressCtrl = TextEditingController(text: profileProvider.address);
-    final whatsappCtrl = TextEditingController(text: profileProvider.whatsapp);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Edit Profil',
-          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Nama Lengkap',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _getTextPrimaryColor(context),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Contoh: Ahmad Ridho',
-                  hintStyle: GoogleFonts.poppins(fontSize: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Alamat',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _getTextPrimaryColor(context),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: addressCtrl,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  hintText: 'Contoh: Jl. Merdeka No. 123, Jakarta',
-                  hintStyle: GoogleFonts.poppins(fontSize: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Nomor WhatsApp',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _getTextPrimaryColor(context),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: whatsappCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  hintText: 'Contoh: +6281234567890 (opsional)',
-                  hintStyle: GoogleFonts.poppins(fontSize: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Batal', style: GoogleFonts.poppins()),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final nav = Navigator.of(context);
-              final messenger = ScaffoldMessenger.of(context);
-
-              if (nameCtrl.text.isEmpty || addressCtrl.text.isEmpty) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Nama dan alamat harus diisi',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                    backgroundColor: AppColors.danger,
-                  ),
-                );
-                return;
-              }
-
-              await profileProvider.updateProfile(
-                name: nameCtrl.text,
-                address: addressCtrl.text,
-                whatsapp: whatsappCtrl.text,
-              );
-
-              if (!mounted) return;
-              nav.pop();
-              messenger.showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '✅ Profil berhasil diperbarui',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                  ),
-                  backgroundColor: AppColors.primary,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-            ),
-            child: Text('Simpan', style: GoogleFonts.poppins(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
 
 }

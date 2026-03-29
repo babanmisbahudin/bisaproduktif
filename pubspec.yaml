@@ -45,9 +45,6 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
 
-  # Audio Music Player
-  just_audio: ^0.9.36
-
   # UUID
   uuid: ^4.0.0
 

@@ -8,10 +8,6 @@ class AppStrings {
 
   // Onboarding
   static const String onboardingWelcome = 'Selamat Datang!';
-  static const String onboardingGenderTitle = 'Kamu siapa?';
-  static const String onboardingGenderSubtitle = 'Pilih karakter yang mewakili kamu';
-  static const String genderMale = 'Laki-laki';
-  static const String genderFemale = 'Perempuan';
   static const String onboardingNameTitle = 'Siapa namamu?';
   static const String onboardingNameHint = 'Masukkan nama kamu';
   static const String onboardingNameSubtitle = 'Nama ini akan muncul di profil kamu';

@@ -996,88 +996,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 24),
                   // Control buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final coins = await focusProvider.completeSession();
-                            if (mounted && coins > 0) {
-                              await context.read<HabitProvider>().addCoins(coins);
-                              _snack('Focus selesai! +$coins koin 🎉');
-                            } else {
-                              _snack('Focus selesai! Bagus! 🎉');
-                            }
-                          },
-                          icon: const Icon(Icons.stop_circle),
-                          label: Text(
-                            'Selesai',
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.danger,
-                            side: const BorderSide(color: AppColors.danger),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            focusProvider.toggleMusic();
-                            _snack('🎵 Musik produktif aktif');
-                          },
-                          icon: const Icon(Icons.music_note),
-                          label: Text(
-                            'Musik',
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  // Tips
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.blue.withValues(alpha: 0.2),
-                      ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final coins = await focusProvider.completeSession();
+                      if (mounted && coins > 0) {
+                        await context.read<HabitProvider>().addCoins(coins);
+                        _snack('Focus selesai! +$coins koin 🎉');
+                      } else {
+                        _snack('Focus selesai! Bagus! 🎉');
+                      }
+                    },
+                    icon: const Icon(Icons.stop_circle),
+                    label: Text(
+                      'Selesai',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          color: Colors.blue.shade600,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Jangan periksa ponsel, fokus pada aktivitas',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: Colors.blue.shade700,
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                      ],
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ],
@@ -1146,46 +1086,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Info box
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.info_outline,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Atur durasi 1-120 menit dan musik untuk tetap fokus',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: AppColors.textPrimary,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],

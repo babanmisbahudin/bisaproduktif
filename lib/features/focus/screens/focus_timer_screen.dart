@@ -402,48 +402,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
               ),
               const SizedBox(height: 60),
 
-              // Music toggle
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          focusProvider.isMusicEnabled
-                              ? Icons.music_note
-                              : Icons.music_off,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          focusProvider.isMusicEnabled
-                              ? '🎵 Musik Produktif'
-                              : '🔇 Musik Off',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Switch(
-                      value: focusProvider.isMusicEnabled,
-                      onChanged: (_) => focusProvider.toggleMusic(),
-                      activeThumbColor: Colors.amber,
-                      activeTrackColor: Colors.amber.withValues(alpha: 0.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-
               // Controls: Selesai (Complete) & Stop
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -516,15 +474,6 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '🎵 Link musik: youtube.com/R1r9nLYcqBU',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.amber,
-                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],

@@ -315,7 +315,7 @@ class _ReportScreenState extends State<ReportScreen> {
                             ),
                           ),
                           Text(
-                            '${goal.currentProgress}%',
+                            '${(goal.progressPercent * 100).toStringAsFixed(0)}%',
                             style: GoogleFonts.poppins(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

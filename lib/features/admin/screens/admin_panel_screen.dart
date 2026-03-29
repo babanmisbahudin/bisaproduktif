@@ -1691,8 +1691,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                         children: [
                           _buildInfoRow('📱 WhatsApp', user['whatsapp'] as String? ?? '-'),
                           const SizedBox(height: 8),
-                          _buildInfoRow('👤 Gender', user['gender'] as String? ?? 'unknown'),
-                          const SizedBox(height: 8),
                           _buildInfoRow(
                             '🕐 Last Sync',
                             user['lastSync'] != null

@@ -64,11 +64,10 @@ class AuthProvider extends ChangeNotifier {
       await _auth.signInWithCredential(credential);
       _user = _auth.currentUser;
 
-      // Simpan nama & gender dari SharedPreferences ke Firestore
+      // Simpan nama ke Firestore
       final prefs = await SharedPreferences.getInstance();
       await FirebaseService.saveUserProfile(
         name: prefs.getString('user_name') ?? _user?.displayName ?? '',
-        gender: prefs.getString('user_gender') ?? 'male',
         totalCoins: 0, // akan di-update oleh HabitProvider
         trustScore: 70,
       );
@@ -95,7 +94,6 @@ class AuthProvider extends ChangeNotifier {
       // Save actual coins & trust score to Firebase sebelum logout
       await FirebaseService.saveUserProfile(
         name: _user?.displayName ?? '',
-        gender: prefs.getString('user_gender') ?? 'male',
         totalCoins: currentCoins,
         trustScore: currentTrustScore,
       );
@@ -104,7 +102,6 @@ class AuthProvider extends ChangeNotifier {
       await prefs.remove('user_coins');
       await prefs.remove('trust_score');
       await prefs.remove('user_name');
-      await prefs.remove('user_gender');
     } catch (e) {
       debugPrint('[Auth] Failed to save data to Firebase: $e');
     }
@@ -175,7 +172,6 @@ class AuthProvider extends ChangeNotifier {
 
       await FirebaseService.saveUserProfile(
         name: userName,
-        gender: prefs.getString('user_gender') ?? 'male',
         totalCoins: totalCoins,
         trustScore: trustScore,
       );

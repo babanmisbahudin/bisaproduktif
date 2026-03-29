@@ -5,7 +5,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_transition.dart';
 import '../../../data/models/goal_model.dart';
 import '../../../data/providers/goal_provider.dart';
+import '../../../data/providers/habit_provider.dart';
 import '../screens/add_goal_screen.dart';
+import '../screens/add_task_screen.dart';
 import 'goal_card.dart';
 
 class GoalsTab extends StatelessWidget {
@@ -17,8 +19,8 @@ class GoalsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<GoalProvider>(
-      builder: (context, provider, _) {
-        final goals = provider.goals;
+      builder: (context, goalProvider, _) {
+        final goals = goalProvider.goals;
 
         if (goals.isEmpty) {
           return ListView(
@@ -32,25 +34,23 @@ class GoalsTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
           children: [
             // Goal list
-            ...goals.map((goal) => _buildGoalCard(context, provider, goal)),
+            ...goals.map((goal) => _buildGoalItem(context, goalProvider, goal)),
           ],
         );
       },
     );
   }
 
-
-  Widget _buildGoalCard(
-      BuildContext context, GoalProvider provider, GoalModel goal) {
+  Widget _buildGoalItem(
+      BuildContext context, GoalProvider goalProvider, GoalModel goal) {
     return Dismissible(
       key: Key('goal_${goal.id}'),
-      // Hanya swipe kiri = hapus
       direction: DismissDirection.endToStart,
       background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: AppColors.danger,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -70,256 +70,158 @@ class GoalsTab extends StatelessWidget {
           ],
         ),
       ),
-      confirmDismiss: (_) => showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: AppColors.danger, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Hapus Goal?',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700, fontSize: 17),
-                ),
+      confirmDismiss: (_) => _showDeleteConfirmation(context, goal),
+      onDismissed: (_) async {
+        await goalProvider.deleteGoal(
+          goalId: goal.id,
+          habitProvider: context.read<HabitProvider>(),
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Goal "${goal.title}" dihapus',
+                style: GoogleFonts.poppins(),
               ),
-            ],
-          ),
-          content: Text(
-            '"${goal.title}" akan dihapus secara permanen.',
-            style: GoogleFonts.poppins(
-                fontSize: 13, color: AppColors.textSecondary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Batal',
-                  style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 2),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.danger,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text('Hapus',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      ),
-      onDismissed: (_) {
-        provider.deleteGoal(goal.id);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Goal dihapus', style: GoogleFonts.poppins()),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 2),
-        ));
+          );
+        }
       },
       child: GoalCard(
         goal: goal,
-        onTap: () => _showGoalDetails(context, provider, goal),
-        onLongPress: goal.status == GoalStatus.active
-            ? () => _openEditGoal(context, goal)
-            : null,
+        onTap: () => _showAddTaskSheet(context, goal),
+        onLongPress: () => _showGoalMenu(context, goal),
       ),
     );
   }
 
-  void _openEditGoal(BuildContext context, GoalModel goal) {
-    Navigator.push(
-      context,
-      AppTransition.slideRight(child: AddGoalScreen(editGoal: goal)),
-    );
-  }
-
-  void _showGoalDetails(BuildContext context, GoalProvider provider, GoalModel goal) {
-    showDialog(
+  Future<bool?> _showDeleteConfirmation(
+      BuildContext context, GoalModel goal) async {
+    return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: goal.color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.flag_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
+            const Icon(Icons.warning_amber_rounded,
+                color: AppColors.danger, size: 22),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                goal.title,
+                'Hapus Goal?',
                 style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
+                    fontWeight: FontWeight.w700, fontSize: 17),
               ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              goal.targetDescription,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: goal.color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.monetization_on, color: Colors.amber, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${goal.coins} Coins',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '${goal.currentProgress}%',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: goal.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: goal.progressPercent,
-                minHeight: 8,
-                backgroundColor: Colors.grey[300],
-                valueColor: AlwaysStoppedAnimation(goal.color),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: goal.color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    goal.status == GoalStatus.active
-                        ? Icons.flag_rounded
-                        : Icons.check_circle_rounded,
-                    color: goal.color,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    goal.statusLabel,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: goal.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        content: Text(
+          '"${goal.title}" akan dihapus secara permanen beserta semua kegiatannya.',
+          style: GoogleFonts.poppins(
+              fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Tutup',
-              style: GoogleFonts.poppins(color: AppColors.textSecondary),
-            ),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal',
+                style: GoogleFonts.poppins(color: AppColors.textSecondary)),
           ),
-          if (goal.status == GoalStatus.active)
-            OutlinedButton.icon(
-              onPressed: () {
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text('Hapus',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddTaskSheet(BuildContext context, GoalModel goal) {
+    Navigator.push(
+      context,
+      AppTransition.slideRight(child: AddTaskScreen(goal: goal)),
+    );
+  }
+
+  void _showGoalMenu(BuildContext context, GoalModel goal) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              goal.title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: Text(
+                'Edit Goal',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
                 Navigator.pop(ctx);
                 Navigator.push(
                   context,
                   AppTransition.slideRight(child: AddGoalScreen(editGoal: goal)),
                 );
               },
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: Text(
-                'Edit',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
             ),
-          if (goal.status == GoalStatus.active && goal.currentProgress >= goal.targetProgress)
-            ElevatedButton.icon(
-              onPressed: () async {
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.delete_rounded, color: AppColors.danger),
+              title: Text(
+                'Hapus Goal',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.danger,
+                ),
+              ),
+              onTap: () {
                 Navigator.pop(ctx);
-                final coins = await provider.completeGoal(goal.id);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          const Icon(Icons.monetization_on, color: Colors.amber),
-                          const SizedBox(width: 8),
-                          Text(
-                            '+$coins koin! Goal selesai! 🎉',
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      duration: const Duration(seconds: 3),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Geser goal ke kiri untuk menghapus',
+                      style: GoogleFonts.poppins(),
                     ),
-                  );
-                  onCoinEarned?.call();
-                }
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
               },
-              icon: const Icon(Icons.check_circle_rounded, size: 18),
-              label: Text(
-                'Selesaikan',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: goal.color,
-                foregroundColor: Colors.white,
-              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -352,7 +254,7 @@ class GoalsTab extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tambah goal pertamamu dan raih reward koin saat berhasil!',
+              'Buat goal dan tambahkan kegiatan untuk mendapatkan koin!',
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
@@ -366,7 +268,7 @@ class GoalsTab extends StatelessWidget {
                 AppTransition.slideRight(child: const AddGoalScreen()),
               ),
               icon: const Icon(Icons.add, size: 18),
-              label: Text('Tambah Goal',
+              label: Text('Buat Goal',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
             ),
           ],

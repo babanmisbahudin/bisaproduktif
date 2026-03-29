@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/transaction_model.dart';
 import '../../core/services/firebase_service.dart';
 import 'habit_provider.dart';
@@ -76,6 +78,7 @@ class RewardProvider extends ChangeNotifier {
   bool _isLoaded = false;
   List<RewardItem> _dynamicCatalog = [];
   bool _isCatalogLoaded = false;
+  StreamSubscription? _rewardsSub;
 
   List<TransactionModel> get transactions =>
       List.unmodifiable(_transactions);
@@ -90,8 +93,8 @@ class RewardProvider extends ChangeNotifier {
     _box = await Hive.openBox<TransactionModel>(_boxName);
     _loadTransactions();
     _isLoaded = true;
-    // Fetch dynamic catalog dari Firestore
-    await fetchCatalog();
+    // Subscribe to real-time reward updates dari Firestore
+    _subscribeToRewards();
     notifyListeners();
   }
 
@@ -100,23 +103,43 @@ class RewardProvider extends ChangeNotifier {
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
-  // ── Dynamic Catalog (dari Firestore) ───────────────────────────────────────
+  // ── Dynamic Catalog (Real-time dari Firestore) ────────────────────────────
 
-  Future<void> fetchCatalog() async {
+  void _subscribeToRewards() {
     try {
-      final items = await FirebaseService.fetchRewards();
-      if (items.isNotEmpty) {
-        _dynamicCatalog = items;
-      } else {
-        // Fallback ke hardcoded catalog jika Firestore kosong/offline
+      _rewardsSub = FirebaseFirestore.instance
+          .collection('rewards')
+          .where('isActive', isEqualTo: true)
+          .snapshots()
+          .listen((snapshot) {
+        _dynamicCatalog = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return RewardItem(
+            id: doc.id,
+            emoji: data['emoji'] ?? '🎁',
+            title: data['title'] ?? '',
+            description: data['description'] ?? '',
+            price: data['price'] ?? 0,
+            category: data['category'] ?? 'merchandise',
+            color: Color(data['colorValue'] ?? 0xFF4A7C59),
+          );
+        }).toList();
+        _isCatalogLoaded = true;
+        notifyListeners();
+      }, onError: (error) {
+        // Jika error, gunakan hardcoded catalog
+        debugPrint('[RewardProvider] Firestore error: $error');
         _dynamicCatalog = List.from(catalog);
-      }
-    } catch (_) {
-      // Error atau offline: gunakan hardcoded catalog
+        _isCatalogLoaded = true;
+        notifyListeners();
+      });
+    } catch (e) {
+      // Jika exception, gunakan hardcoded catalog
+      debugPrint('[RewardProvider] Error subscribing to rewards: $e');
       _dynamicCatalog = List.from(catalog);
+      _isCatalogLoaded = true;
+      notifyListeners();
     }
-    _isCatalogLoaded = true;
-    notifyListeners();
   }
 
   // ── Catalog ───────────────────────────────────────────────────────────────
@@ -324,7 +347,7 @@ class RewardProvider extends ChangeNotifier {
             t.timestamp.year == today.year &&
             t.timestamp.month == today.month &&
             t.timestamp.day == today.day)
-        .fold(0, (sum, t) => sum + t.coinsCost);
+        .fold(0, (total, t) => total + t.coinsCost);
   }
 
   int get coinsSpentToday => _coinsSpentToday();
@@ -333,4 +356,12 @@ class RewardProvider extends ChangeNotifier {
 
   List<TransactionModel> get recentTransactions =>
       _transactions.take(10).toList();
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  @override
+  void dispose() {
+    _rewardsSub?.cancel();
+    super.dispose();
+  }
 }

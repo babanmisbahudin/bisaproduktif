@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/app_router.dart';
 import 'data/models/habit_model.dart';
 import 'data/models/goal_model.dart';
+import 'data/models/goal_task_model.dart';
 import 'data/models/transaction_model.dart';
 import 'data/models/memo_model.dart';
 import 'data/models/focus_session_model.dart';
@@ -49,6 +50,7 @@ void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(HabitModelAdapter());
   Hive.registerAdapter(GoalModelAdapter());
+  Hive.registerAdapter(GoalTaskAdapter());
   Hive.registerAdapter(TransactionModelAdapter());
   Hive.registerAdapter(MemoModelAdapter());
   Hive.registerAdapter(FocusSessionModelAdapter());

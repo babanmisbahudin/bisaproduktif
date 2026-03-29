@@ -44,11 +44,7 @@ class DynamicSceneWidget extends StatefulWidget {
 
 class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
     with TickerProviderStateMixin {
-  late final AnimationController _waveCtrl;
   late final AnimationController _cloudCtrl;
-  late final AnimationController _twinkleCtrl;
-  late final AnimationController _rainCtrl;
-  late final AnimationController _shimmerCtrl;
 
   late SceneTime _sceneTime;
   late final List<_Cloud> _clouds;
@@ -62,21 +58,10 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
     _clouds = _genClouds();
     _stars = _genStars();
 
-    _waveCtrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 3))
-      ..repeat();
+    // Only cloud animation (slow, 80 sec)
     _cloudCtrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 50))
+        vsync: this, duration: const Duration(seconds: 80))
       ..repeat();
-    _twinkleCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2000))
-      ..repeat(reverse: true);
-    _rainCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600))
-      ..repeat();
-    _shimmerCtrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 2))
-      ..repeat(reverse: true);
 
     // Refresh scene type every minute
     _sceneTimer = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -87,11 +72,7 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
 
   @override
   void dispose() {
-    _waveCtrl.dispose();
     _cloudCtrl.dispose();
-    _twinkleCtrl.dispose();
-    _rainCtrl.dispose();
-    _shimmerCtrl.dispose();
     _sceneTimer?.cancel();
     super.dispose();
   }
@@ -135,18 +116,12 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        _waveCtrl, _cloudCtrl, _twinkleCtrl, _rainCtrl, _shimmerCtrl
-      ]),
+      animation: _cloudCtrl,
       builder: (_, _) => CustomPaint(
         painter: _ScenePainter(
           scene: _effectiveScene,
           weather: widget.weather,
-          wave: _waveCtrl.value * math.pi * 2,
           cloud: _cloudCtrl.value,
-          twinkle: _twinkleCtrl.value,
-          rain: _rainCtrl.value,
-          shimmer: _shimmerCtrl.value,
           clouds: _clouds,
           stars: _stars,
         ),
@@ -160,18 +135,14 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
 class _ScenePainter extends CustomPainter {
   final SceneTime scene;
   final WeatherType weather;
-  final double wave, cloud, twinkle, rain, shimmer;
+  final double cloud;
   final List<_Cloud> clouds;
   final List<_Star> stars;
 
   const _ScenePainter({
     required this.scene,
     required this.weather,
-    required this.wave,
     required this.cloud,
-    required this.twinkle,
-    required this.rain,
-    required this.shimmer,
     required this.clouds,
     required this.stars,
   });
@@ -215,19 +186,10 @@ class _ScenePainter extends CustomPainter {
 
     _drawBackMountains(canvas, size);
     _drawOcean(canvas, size);
-    _drawWaves(canvas, size);
     _drawFrontHills(canvas, size);
     _drawTrees(canvas, size);
 
     if (scene == SceneTime.morning) _drawBirds(canvas, size);
-    if (scene == SceneTime.hotAfternoon && weather != WeatherType.rainy) {
-      _drawHeatShimmer(canvas, size);
-    }
-
-    if (weather == WeatherType.rainy) {
-      _drawRainOverlay(canvas, size);
-      _drawRainDrops(canvas, size);
-    }
   }
 
   // ── Sky layer ─────────────────────────────────────────────────────────────
@@ -250,7 +212,7 @@ class _ScenePainter extends CustomPainter {
   void _drawStars(Canvas canvas, Size size) {
     for (final s in stars) {
       // Twinkle animation: natural brightness variation
-      final bright = 0.5 + 0.5 * math.sin(twinkle * math.pi + s.phase);
+      final bright = 0.7; // Static brightness instead of twinkle animation
       final starX = s.x * size.width;
       final starY = s.y * size.height * 0.72;
 
@@ -444,24 +406,13 @@ class _ScenePainter extends CustomPainter {
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
     for (int i = 0; i < 12; i++) {
-      final a = (i / 12) * math.pi * 2 + wave * 0.25;
+      final a = (i / 12) * math.pi * 2; // Removed wave animation
       canvas.drawLine(
         Offset(c.dx + math.cos(a) * r * 1.5, c.dy + math.sin(a) * r * 1.5),
         Offset(c.dx + math.cos(a) * r * 2.2, c.dy + math.sin(a) * r * 2.2),
         p,
       );
     }
-  }
-
-  // ── Heat shimmer ─────────────────────────────────────────────────────────
-  void _drawHeatShimmer(Canvas canvas, Size size) {
-    final y = size.height * 0.56;
-    canvas.drawRect(
-      Rect.fromLTWH(0, y - 20, size.width, 40),
-      Paint()
-        ..color = const Color(0xFFFFF9C4).withValues(alpha: 0.07 + shimmer * 0.05)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
-    );
   }
 
   // ── Fluffy clouds ─────────────────────────────────────────────────────────
@@ -587,34 +538,6 @@ class _ScenePainter extends CustomPainter {
     );
   }
 
-  // ── Ocean waves ────────────────────────────────────────────────────────────
-  void _drawWaves(Canvas canvas, Size size) {
-    final waveColor = weather == WeatherType.rainy
-        ? Colors.white.withValues(alpha: 0.18)
-        : Colors.white.withValues(alpha: 0.28);
-    final wavePaint = Paint()
-      ..color = waveColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8;
-
-    for (int layer = 0; layer < 4; layer++) {
-      final phase = wave + layer * math.pi * 0.55;
-      final amplitude = (weather == WeatherType.rainy ? 7.0 : 4.5) - layer * 0.7;
-      final yBase = size.height * 0.58 + layer * 11.0;
-
-      final path = Path();
-      for (double x = 0; x <= size.width + 8; x += 2) {
-        final y = yBase + amplitude * math.sin((x / size.width) * math.pi * 5 + phase);
-        if (x == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
-      }
-      canvas.drawPath(path, wavePaint);
-    }
-  }
-
   // ── Front hills ───────────────────────────────────────────────────────────
   void _drawFrontHills(Canvas canvas, Size size) {
     Color col;
@@ -730,44 +653,9 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
-  // ── Rain ─────────────────────────────────────────────────────────────────
-  void _drawRainOverlay(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFF101E28).withValues(alpha: 0.38),
-    );
-  }
-
-  void _drawRainDrops(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFF90CAF9).withValues(alpha: 0.42)
-      ..strokeWidth = 1.1
-      ..strokeCap = StrokeCap.round;
-
-    final rng = math.Random(9999);
-    const count = 130;
-    for (int i = 0; i < count; i++) {
-      final bx = rng.nextDouble() * size.width;
-      final by = rng.nextDouble() * size.height;
-      final speed = 0.35 + rng.nextDouble() * 0.55;
-      final len = 13.0 + rng.nextDouble() * 12;
-
-      final cy = (by + rain * size.height * speed) % size.height;
-      canvas.drawLine(
-        Offset(bx - len * 0.1, cy),
-        Offset(bx + len * 0.1, cy + len),
-        p,
-      );
-    }
-  }
-
   @override
   bool shouldRepaint(_ScenePainter old) =>
-      old.wave != wave ||
       old.cloud != cloud ||
-      old.twinkle != twinkle ||
-      old.rain != rain ||
-      old.shimmer != shimmer ||
       old.scene != scene ||
       old.weather != weather;
 }

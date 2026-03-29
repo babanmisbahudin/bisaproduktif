@@ -20,14 +20,12 @@ class FirebaseService {
   /// Simpan/update profil user ke Firestore.
   static Future<void> saveUserProfile({
     required String name,
-    required String gender,
     required int totalCoins,
     required int trustScore,
   }) async {
     if (!isLoggedIn) return;
     await _db.collection('users').doc(userId).set({
       'name': name,
-      'gender': gender,
       'totalCoins': totalCoins,
       'trustScore': trustScore,
       'lastSync': FieldValue.serverTimestamp(),
@@ -115,7 +113,7 @@ class FirebaseService {
 
   /// Ambil semua user AKTIF dari Firestore untuk admin dashboard.
   /// Filter: isActive != false (exclude soft-deleted users)
-  /// Returns list of {uid, name, totalCoins, trustScore, gender, whatsapp, lastSync}
+  /// Returns list of {uid, name, totalCoins, trustScore, whatsapp, lastSync}
   static Future<List<Map<String, dynamic>>> getAllUsers() async {
     if (!isLoggedIn) return [];
     try {
@@ -130,7 +128,6 @@ class FirebaseService {
           'name': data['name'] ?? 'Unknown',
           'totalCoins': data['totalCoins'] ?? 0,
           'trustScore': data['trustScore'] ?? 70,
-          'gender': data['gender'] ?? 'unknown',
           'whatsapp': data['whatsapp'] ?? '-',
           'lastSync': data['lastSync'],
           'isBlocked': data['isBlocked'] ?? false,

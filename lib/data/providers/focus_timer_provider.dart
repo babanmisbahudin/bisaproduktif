@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/services/music_service.dart';
 import '../models/focus_session_model.dart';
 
 class FocusTimerProvider extends ChangeNotifier {
@@ -20,10 +19,6 @@ class FocusTimerProvider extends ChangeNotifier {
   int _remainingSeconds = 0;
   int _lastRewardCoins = 0; // Last earned coins
 
-  // Music state
-  bool _isMusicEnabled = true;
-  final MusicService _musicService = MusicService();
-
   List<FocusSessionModel> get sessions => List.unmodifiable(_sessions);
   bool get isLoaded => _isLoaded;
   FocusSessionModel? get currentSession => _currentSession;
@@ -31,7 +26,6 @@ class FocusTimerProvider extends ChangeNotifier {
   int get remainingSeconds => _remainingSeconds;
   int get totalSessions => _sessions.length;
   int get completedSessions => _sessions.where((s) => s.isCompleted).length;
-  bool get isMusicEnabled => _isMusicEnabled;
   int get lastRewardCoins => _lastRewardCoins;
 
   // ── Init ────────────────────────────────────────────────────────────────────
@@ -437,32 +431,8 @@ class FocusTimerProvider extends ChangeNotifier {
 
   // ── Clear Data ──────────────────────────────────────────────────────────────
 
-  /// Toggle produktif music on/off
-  void toggleMusic() {
-    _isMusicEnabled = !_isMusicEnabled;
-    if (_isMusicEnabled && _isActive) {
-      _musicService.playFocusMusic();
-    } else {
-      _musicService.stopMusic();
-    }
-    notifyListeners();
-  }
-
-  /// Play focus music
-  Future<void> playMusic() async {
-    await _musicService.playFocusMusic();
-    notifyListeners();
-  }
-
-  /// Stop music
-  Future<void> stopMusicPlayback() async {
-    await _musicService.stopMusic();
-    notifyListeners();
-  }
-
   Future<void> clearUserData() async {
     _timer?.cancel();
-    _musicService.stopMusic();
     _sessions.clear();
     _currentSession = null;
     _isActive = false;
@@ -474,7 +444,6 @@ class FocusTimerProvider extends ChangeNotifier {
   void dispose() {
     _timer?.cancel();
     _timer = null;
-    _musicService.stopMusic();
     super.dispose();
   }
 }

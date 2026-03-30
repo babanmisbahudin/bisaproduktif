@@ -268,8 +268,13 @@ class HabitProvider extends ChangeNotifier {
     await _box.put(habit.id, habit);
 
     // Sync goal progress jika habit ini terikat ke goal
+    // Pass `this` sebagai habitProvider agar bonus koin deadline bisa dikreditkan
     if (habit.goalId != null && goalProvider != null) {
-      await goalProvider.syncProgressFromHabits(habit.goalId, _habits);
+      await goalProvider.syncProgressFromHabits(
+        habit.goalId,
+        _habits,
+        habitProvider: this,
+      );
     }
 
     // Tambah koin: kategori × streak × durasi goal (jika linked ke goal)

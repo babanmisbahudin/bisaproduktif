@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/habit_model.dart';
 import '../../../data/providers/focus_timer_provider.dart';
+import '../../../data/providers/habit_provider.dart';
+import '../../../data/providers/goal_provider.dart';
 import 'focus_history_screen.dart';
 
 class FocusTimerScreen extends StatefulWidget {
-  const FocusTimerScreen({super.key});
+  /// Habit yang dihubungkan — form akan pre-fill & habit otomatis dicentang saat timer selesai
+  final HabitModel? linkedHabit;
+
+  const FocusTimerScreen({super.key, this.linkedHabit});
 
   @override
   State<FocusTimerScreen> createState() => _FocusTimerScreenState();
@@ -14,18 +20,131 @@ class FocusTimerScreen extends StatefulWidget {
 
 class _FocusTimerScreenState extends State<FocusTimerScreen> {
   late TextEditingController _activityCtrl;
-  int _selectedDuration = 10; // Default 10 minutes
+  int _selectedDuration = 10;
   String _selectedCategory = 'reading';
-  bool _enablePomodoro = false; // Pomodoro mode toggle
+  bool _enablePomodoro = false;
+
+  // ── Helpers: deteksi durasi & kategori dari nama habit ────────────────────
+
+  /// Deteksi durasi dari judul habit, fallback ke default per kategori
+  static int _detectDuration(String title, HabitCategory cat) {
+    final t = title.toLowerCase();
+    final minMatch = RegExp(r'(\d+)\s*menit').firstMatch(t);
+    if (minMatch != null) { return int.parse(minMatch.group(1)!).clamp(1, 120); }
+    final jamMatch = RegExp(r'(\d+)\s*jam').firstMatch(t);
+    if (jamMatch != null) { return (int.parse(jamMatch.group(1)!) * 60).clamp(1, 120); }
+    return switch (cat) {
+      HabitCategory.ringan      => 10,
+      HabitCategory.sedang      => 20,
+      HabitCategory.berat       => 30,
+      HabitCategory.sangatBerat => 45,
+    };
+  }
+
+  /// Petakan nama habit ke kategori timer
+  static String _detectTimerCategory(String title) {
+    final t = title.toLowerCase();
+    if (['sholat', 'ngaji', 'quran', 'dzikir', 'puasa', 'tahajud', 'dhuha',
+         'tarawih', 'doa', 'ibadah'].any(t.contains)) { return 'prayer'; }
+    if (['belajar', 'baca buku', 'baca jurnal', 'coding', 'koding', 'nulis',
+         'menulis', 'review materi', 'latihan soal'].any(t.contains)) { return 'study'; }
+    if (['olahraga', 'gym', 'lari', 'jogging', 'push up', 'sit up', 'squat',
+         'yoga', 'renang', 'sepeda', 'fitness', 'angkat'].any(t.contains)) { return 'exercise'; }
+    if (['kerja', 'deadline', 'meeting', 'proyek', 'rapat',
+         'presentasi', 'laporan'].any(t.contains)) { return 'work'; }
+    return 'reading';
+  }
+
+  // ── Listener: auto-centang habit saat timer selesai ──────────────────────
+
+  void _onTimerChanged() {
+    if (!mounted) return;
+    final focusProvider = context.read<FocusTimerProvider>();
+
+    // Handle auto-centang habit (jika timer dari habit card)
+    final completedHabitId = focusProvider.lastCompletedHabitId;
+    if (completedHabitId != null) {
+      focusProvider.consumeCompletedHabitId();
+      _autoCompleteHabit(completedHabitId);
+      return; // koin dari habit, tidak perlu kredit focus reward
+    }
+
+    // Handle kredit koin focus session (jika tidak ada linked habit)
+    final focusReward = focusProvider.pendingFocusReward;
+    if (focusReward > 0) {
+      focusProvider.consumeFocusReward();
+      _creditFocusReward(focusReward);
+    }
+  }
+
+  Future<void> _autoCompleteHabit(String habitId) async {
+    if (!mounted) return;
+    final habitProvider = context.read<HabitProvider>();
+    final goalProvider = context.read<GoalProvider>();
+    final ok = await habitProvider.completeHabit(habitId, goalProvider: goalProvider);
+    if (!mounted) return;
+
+    final habitTitle = widget.linkedHabit?.title ?? 'Habit';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? '✅ "$habitTitle" otomatis dicentang!'
+              : '⚠️ Habit sudah dicentang hari ini',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: ok ? Colors.green : Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _creditFocusReward(int coins) async {
+    if (!mounted) return;
+    final habitProvider = context.read<HabitProvider>();
+    await habitProvider.addCoins(coins);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '🎉 Sesi fokus selesai! +$coins koin',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    _activityCtrl = TextEditingController();
+
+    final habit = widget.linkedHabit;
+    if (habit != null) {
+      _activityCtrl = TextEditingController(text: habit.title);
+      _selectedDuration = _detectDuration(habit.title, habit.category);
+      _selectedCategory = _detectTimerCategory(habit.title);
+    } else {
+      _activityCtrl = TextEditingController();
+    }
+
+    // Daftarkan listener untuk auto-centang habit & kredit koin saat timer selesai
+    // Langsung di initState agar tidak ada race condition dengan dispose
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<FocusTimerProvider>().addListener(_onTimerChanged);
+      }
+    });
   }
 
   @override
   void dispose() {
+    context.read<FocusTimerProvider>().removeListener(_onTimerChanged);
     _activityCtrl.dispose();
     super.dispose();
   }
@@ -65,6 +184,55 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Banner linked habit ────────────────────────────────────────────
+          if (widget.linkedHabit != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Text('⏱️', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Terhubung ke habit:',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          widget.linkedHabit!.title,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        Text(
+                          '✅ Habit otomatis dicentang saat timer selesai',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+
           // ── Focus Statistics Banner ────────────────────────────────────────
           _buildStatsCard(focusProvider),
           const SizedBox(height: 24),
@@ -191,6 +359,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
               _buildCategoryChip('📿 Ibadah', 'prayer'),
               _buildCategoryChip('💼 Kerja', 'work'),
               _buildCategoryChip('📚 Belajar', 'study'),
+              _buildCategoryChip('🏃 Olahraga', 'exercise'),
             ],
           ),
           const SizedBox(height: 24),
@@ -258,6 +427,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
                         activity: _activityCtrl.text,
                         durationMinutes: _selectedDuration,
                         category: _selectedCategory,
+                        linkedHabitId: widget.linkedHabit?.id,
                       );
                       setState(() {});
                     },

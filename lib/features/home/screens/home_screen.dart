@@ -17,6 +17,7 @@ import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/goal_provider.dart';
 import '../../habits/screens/add_habit_screen.dart';
 import '../../goals/screens/add_goal_screen.dart';
+import '../../focus/screens/focus_timer_screen.dart';
 import '../../goals/widgets/goals_tab.dart';
 import '../../../data/providers/notification_provider.dart';
 import '../../../data/providers/memo_provider.dart';
@@ -1530,6 +1531,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                     const SizedBox(width: 10),
+                    // Timer button (hanya jika belum selesai)
+                    if (!done)
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                FocusTimerScreen(linkedHabit: habit),
+                          ),
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            '⏱️',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                        ),
+                      ),
                     // Coin badge
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1681,164 +1705,258 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _showHabitDetails(BuildContext context, HabitProvider provider, HabitModel habit) {
     final done = habit.isCompletedOnDate;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // ── Drag handle ────────────────────────────────────────────────
             Container(
               width: 40,
-              height: 40,
+              height: 4,
               decoration: BoxDecoration(
-                color: habit.color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                done ? Icons.check_rounded : Icons.radio_button_unchecked,
-                color: Colors.white,
-                size: 22,
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                habit.title,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+            const SizedBox(height: 20),
+
+            // ── Header: warna aksen + nama + status ────────────────────────
+            Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: habit.color,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: habit.color.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    done ? Icons.check_rounded : Icons.radio_button_unchecked,
+                    color: Colors.white,
+                    size: 26,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        habit.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: done
+                              ? Colors.green.withValues(alpha: 0.12)
+                              : habit.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          done ? '✅ Selesai hari ini' : '⏳ Belum selesai',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: done ? Colors.green.shade700 : habit.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: habit.color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.monetization_on, color: Colors.amber, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${habit.coins} COS coins',
+            const SizedBox(height: 20),
+
+            // ── Info chips: koin, streak, kategori ────────────────────────
+            Row(
+              children: [
+                _infoChip(
+                  '💰', '${habit.coins} koin',
+                  Colors.amber.shade700, Colors.amber.withValues(alpha: 0.1),
+                ),
+                const SizedBox(width: 10),
+                _infoChip(
+                  '🔥', habit.streak > 0 ? '${habit.streak} hari' : 'Mulai hari ini',
+                  Colors.deepOrange, Colors.deepOrange.withValues(alpha: 0.08),
+                ),
+                const SizedBox(width: 10),
+                _infoChip(
+                  habit.category.emoji, habit.category.label,
+                  AppColors.primary, AppColors.primary.withValues(alpha: 0.08),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── Divider tipis ──────────────────────────────────────────────
+            Divider(color: Colors.grey.shade100, height: 1),
+            const SizedBox(height: 20),
+
+            // ── Tombol aksi ────────────────────────────────────────────────
+            if (!done) ...[
+              // Ceklis: full-width, warna habit
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final goalProvider = context.read<GoalProvider>();
+                    final ok = await provider.completeHabit(
+                        habit.id, goalProvider: goalProvider);
+                    if (mounted) {
+                      ok ? _showCoin(habit.coins, provider) : _showFraud();
+                    }
+                  },
+                  icon: const Icon(Icons.check_circle_rounded, size: 20),
+                  label: Text(
+                    'Ceklis Sekarang',
                     style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (habit.streak > 0) ...[
-              Row(
-                children: [
-                  const Text('🔥', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${habit.streak} hari berturut-turut',
-                    style: GoogleFonts.poppins(fontSize: 13),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: habit.color,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 12),
             ],
-            if (done)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Sudah diselesaikan hari ini',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
+
+            // Edit + Hapus: dua kolom sejajar
+            Row(
+              children: [
+                // Edit
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _openEditHabit(habit);
+                      },
+                      icon: const Icon(Icons.edit_rounded, size: 18),
+                      label: Text(
+                        'Edit',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(
+                            color: AppColors.primary.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                // Hapus
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        final confirm = await _confirmDelete(
+                          context,
+                          title: 'Hapus Habit?',
+                          content: '"${habit.title}" akan dihapus permanen.',
+                        );
+                        if (confirm == true && mounted) {
+                          provider.deleteHabit(habit.id);
+                          _snack('Habit dihapus');
+                        }
+                      },
+                      icon: const Icon(Icons.delete_rounded, size: 18),
+                      label: Text(
+                        'Hapus',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.danger,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        side: BorderSide(
+                            color: AppColors.danger.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        actions: [
-          if (!done)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Batal',
-                style: GoogleFonts.poppins(color: AppColors.textSecondary),
+      ),
+    );
+  }
+
+  /// Info chip kecil untuk koin / streak / kategori
+  Widget _infoChip(
+      String emoji, String label, Color textColor, Color bgColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: textColor,
               ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          if (!done)
-            ElevatedButton.icon(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final goalProvider = context.read<GoalProvider>();
-                final ok = await provider.completeHabit(habit.id, goalProvider: goalProvider);
-                if (mounted) {
-                  ok ? _showCoin(habit.coins, provider) : _showFraud();
-                }
-              },
-              icon: const Icon(Icons.check_rounded, size: 18),
-              label: Text(
-                'Ceklis',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: habit.color,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          if (!done)
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _openEditHabit(habit);
-              },
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: Text(
-                'Edit',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-            ),
-          OutlinedButton.icon(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final confirm = await _confirmDelete(
-                context,
-                title: 'Hapus Habit?',
-                content: '"${habit.title}" akan dihapus permanen.',
-              );
-              if (confirm == true && mounted) {
-                provider.deleteHabit(habit.id);
-                _snack('Habit dihapus');
-              }
-            },
-            icon: const Icon(Icons.delete_rounded, size: 18),
-            label: Text(
-              'Hapus',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.danger),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppColors.danger),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

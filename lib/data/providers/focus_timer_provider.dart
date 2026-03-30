@@ -20,8 +20,9 @@ class FocusTimerProvider extends ChangeNotifier {
   int _lastRewardCoins = 0; // Last earned coins
 
   // Linked habit support
-  String? _linkedHabitId;      // habit yang dihubungkan ke sesi ini
+  String? _linkedHabitId;        // habit yang dihubungkan ke sesi ini
   String? _lastCompletedHabitId; // diset saat timer selesai, dikonsumsi oleh FocusTimerScreen
+  int _pendingFocusReward = 0;   // koin focus session yg belum dikreditkan (tanpa linked habit)
 
   List<FocusSessionModel> get sessions => List.unmodifiable(_sessions);
   bool get isLoaded => _isLoaded;
@@ -35,10 +36,18 @@ class FocusTimerProvider extends ChangeNotifier {
   /// Diset saat timer selesai + ada linked habit. Dikonsumsi oleh FocusTimerScreen.
   String? get lastCompletedHabitId => _lastCompletedHabitId;
 
+  /// Koin focus session yang belum dikreditkan (hanya saat tidak ada linked habit).
+  int get pendingFocusReward => _pendingFocusReward;
+
   /// Panggil setelah menangani lastCompletedHabitId
   void consumeCompletedHabitId() {
     _lastCompletedHabitId = null;
     notifyListeners();
+  }
+
+  /// Panggil setelah mengkreditkan koin focus ke habitProvider
+  void consumeFocusReward() {
+    _pendingFocusReward = 0;
   }
 
   // ── Init ────────────────────────────────────────────────────────────────────
@@ -167,10 +176,14 @@ class FocusTimerProvider extends ChangeNotifier {
 
       _box.put(_currentSession!.id, _currentSession!);
     }
-    // Expose linked habit ID untuk dikonsumsi FocusTimerScreen
+    // Expose ke FocusTimerScreen untuk dikonsumsi
     if (_linkedHabitId != null) {
+      // Ada linked habit → habit akan di-centang, koin dari habit (bukan focus)
       _lastCompletedHabitId = _linkedHabitId;
       _linkedHabitId = null;
+    } else if (reward > 0) {
+      // Tidak ada linked habit → kreditkan koin focus session
+      _pendingFocusReward = reward;
     }
 
     _clearSessionPrefsSync();
@@ -441,10 +454,11 @@ class FocusTimerProvider extends ChangeNotifier {
 
     // Bonus kategori
     final categoryBonus = switch (session.category) {
-      'prayer' => 1.3, // Ibadah: 30% bonus
-      'study' => 1.2, // Belajar: 20% bonus
-      'work' => 1.1, // Kerja: 10% bonus
-      _ => 1.0,
+      'prayer'   => 1.3, // Ibadah: 30% bonus
+      'study'    => 1.2, // Belajar: 20% bonus
+      'exercise' => 1.2, // Olahraga: 20% bonus
+      'work'     => 1.1, // Kerja: 10% bonus
+      _          => 1.0,
     };
     coins = (coins * categoryBonus).toInt();
 

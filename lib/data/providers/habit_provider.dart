@@ -272,8 +272,11 @@ class HabitProvider extends ChangeNotifier {
       await goalProvider.syncProgressFromHabits(habit.goalId, _habits);
     }
 
-    // Tambah koin berdasarkan kategori + streak multiplier
-    final earnedCoins = _computeCoinsWithStreak(habit);
+    // Tambah koin: kategori × streak × durasi goal (jika linked ke goal)
+    final durationMultiplier = (habit.goalId != null && goalProvider != null)
+        ? (goalProvider.getDurationMultiplier(habit.goalId!) as double)
+        : 1.0;
+    final earnedCoins = _computeCoinsWithStreak(habit, durationMultiplier: durationMultiplier);
     habit.coins = earnedCoins; // simpan supaya report bisa baca nilai real
     await _box.put(habit.id, habit);
     _totalCoins += earnedCoins;
@@ -332,20 +335,20 @@ class HabitProvider extends ChangeNotifier {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /// Hitung koin berdasarkan kategori + streak multiplier
-  int _computeCoinsWithStreak(HabitModel habit) {
+  /// Hitung koin berdasarkan kategori × streak × durasi goal
+  int _computeCoinsWithStreak(HabitModel habit, {double durationMultiplier = 1.0}) {
     final base = habit.category.baseCoins;
-    double multiplier;
+    double streakMultiplier;
     if (habit.streak >= 30) {
-      multiplier = 2.0;
+      streakMultiplier = 2.0;
     } else if (habit.streak >= 14) {
-      multiplier = 1.5;
+      streakMultiplier = 1.5;
     } else if (habit.streak >= 7) {
-      multiplier = 1.2;
+      streakMultiplier = 1.2;
     } else {
-      multiplier = 1.0;
+      streakMultiplier = 1.0;
     }
-    return (base * multiplier).round();
+    return (base * streakMultiplier * durationMultiplier).round();
   }
 
   String _todayKey() {

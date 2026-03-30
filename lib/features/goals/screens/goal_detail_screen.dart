@@ -247,6 +247,43 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
                       height: 1.5),
                 ),
               ),
+              const SizedBox(height: 10),
+              // ── Bonus durasi ──────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: goal.durationMultiplier > 1.0
+                      ? Colors.amber.withValues(alpha: 0.1)
+                      : Colors.grey.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: goal.durationMultiplier > 1.0
+                        ? Colors.amber.withValues(alpha: 0.35)
+                        : Colors.grey.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      goal.durationMultiplier > 1.0 ? '🎯' : '📅',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Bonus deadline: ${goal.durationBonusLabel}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: goal.durationMultiplier > 1.0
+                              ? Colors.amber.shade800
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
               // ── Habit Terkait ─────────────────────────────────────────────

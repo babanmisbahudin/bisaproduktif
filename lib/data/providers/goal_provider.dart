@@ -115,12 +115,17 @@ class GoalProvider extends ChangeNotifier {
     final progress = _calculateProgress(goal, allHabits);
     goal.progressPercent = progress;
 
-    // Cek apakah goal selesai (progress 100%)
-    if (progress >= 1.0) {
+    // Goal selesai hanya jika deadline sudah terlewat
+    // (progress >= 1.0 hampir mustahil karena pakai total durasi penuh)
+    final now = DateTime.now();
+    final deadlinePassed =
+        goal.deadline != null && now.isAfter(goal.deadline!);
+    if (deadlinePassed && !goal.isCompleted) {
       goal.status = GoalStatus.completed;
-      // Beri bonus koin saat goal selesai
-      if (habitProvider != null) {
-        await habitProvider.addCoins(goal.coins);
+      // Beri bonus koin proporsional berdasarkan progress akhir
+      if (habitProvider != null && progress > 0) {
+        final bonusCoins = (goal.coins * progress).round().clamp(10, goal.coins);
+        await habitProvider.addCoins(bonusCoins);
       }
     }
 
@@ -128,7 +133,11 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Hitung progress berdasarkan history centangan habit
+  /// Hitung progress berdasarkan history centangan habit.
+  ///
+  /// Formula: actualCompletions / (totalDays × habitCount)
+  /// - totalDays = selisih hari dari createdAt sampai deadline (atau 90 hari default)
+  /// - Ini memastikan hari pertama cek = sebagian kecil %, bukan langsung 100%
   double _calculateProgress(GoalModel goal, List<HabitModel> allHabits) {
     if (goal.linkedHabitIds.isEmpty) return 0.0;
 
@@ -138,12 +147,15 @@ class GoalProvider extends ChangeNotifier {
 
     if (linkedHabits.isEmpty) return 0.0;
 
-    final daysSince =
-        DateTime.now().difference(goal.createdAt).inDays + 1;
-    final expectedTotal = daysSince * linkedHabits.length;
-    if (expectedTotal == 0) return 0.0;
+    // Target durasi penuh: creation → deadline (atau 90 hari jika tidak ada deadline)
+    final effectiveDeadline =
+        goal.deadline ?? goal.createdAt.add(const Duration(days: 90));
+    final totalDays =
+        effectiveDeadline.difference(goal.createdAt).inDays.clamp(1, 99999);
 
-    // Hitung total centangan sejak goal dibuat
+    final expectedTotal = totalDays * linkedHabits.length;
+
+    // Hitung total centangan sejak goal dibuat (sampai hari ini)
     int actualTotal = 0;
     for (final habit in linkedHabits) {
       actualTotal += habit.completionTimestamps.where((ts) {
@@ -222,6 +234,11 @@ class GoalProvider extends ChangeNotifier {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Ambil duration multiplier koin untuk goal tertentu
+  double getDurationMultiplier(String goalId) {
+    return getGoalById(goalId)?.durationMultiplier ?? 1.0;
   }
 
   /// Cek apakah sebuah habit sudah di-lock ke goal manapun

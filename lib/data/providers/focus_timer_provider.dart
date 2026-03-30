@@ -19,6 +19,10 @@ class FocusTimerProvider extends ChangeNotifier {
   int _remainingSeconds = 0;
   int _lastRewardCoins = 0; // Last earned coins
 
+  // Linked habit support
+  String? _linkedHabitId;      // habit yang dihubungkan ke sesi ini
+  String? _lastCompletedHabitId; // diset saat timer selesai, dikonsumsi oleh FocusTimerScreen
+
   List<FocusSessionModel> get sessions => List.unmodifiable(_sessions);
   bool get isLoaded => _isLoaded;
   FocusSessionModel? get currentSession => _currentSession;
@@ -27,6 +31,15 @@ class FocusTimerProvider extends ChangeNotifier {
   int get totalSessions => _sessions.length;
   int get completedSessions => _sessions.where((s) => s.isCompleted).length;
   int get lastRewardCoins => _lastRewardCoins;
+
+  /// Diset saat timer selesai + ada linked habit. Dikonsumsi oleh FocusTimerScreen.
+  String? get lastCompletedHabitId => _lastCompletedHabitId;
+
+  /// Panggil setelah menangani lastCompletedHabitId
+  void consumeCompletedHabitId() {
+    _lastCompletedHabitId = null;
+    notifyListeners();
+  }
 
   // ── Init ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +62,10 @@ class FocusTimerProvider extends ChangeNotifier {
     required String activity,
     required int durationMinutes,
     required String category,
+    String? linkedHabitId, // opsional: habit yang akan dicentang otomatis saat selesai
   }) async {
+    _linkedHabitId = linkedHabitId;
+    _lastCompletedHabitId = null;
     debugPrint('[FocusTimer] Starting session: $activity ($durationMinutes min)');
 
     final now = DateTime.now();
@@ -151,6 +167,12 @@ class FocusTimerProvider extends ChangeNotifier {
 
       _box.put(_currentSession!.id, _currentSession!);
     }
+    // Expose linked habit ID untuk dikonsumsi FocusTimerScreen
+    if (_linkedHabitId != null) {
+      _lastCompletedHabitId = _linkedHabitId;
+      _linkedHabitId = null;
+    }
+
     _clearSessionPrefsSync();
     _currentSession = null;
     _remainingSeconds = 0;
@@ -280,6 +302,7 @@ class FocusTimerProvider extends ChangeNotifier {
   Future<void> cancelSession() async {
     _timer?.cancel();
     _isActive = false;
+    _linkedHabitId = null; // clear linked habit saat cancel
     await _clearSessionPrefs();
 
     if (_currentSession != null) {

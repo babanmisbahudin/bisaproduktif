@@ -41,6 +41,37 @@ class GoalModel {
     return diff < 0 ? 0 : diff;
   }
 
+  /// Total durasi goal dalam hari (creation → deadline)
+  int get totalDays {
+    if (deadline == null) return 0;
+    return deadline!.difference(createdAt).inDays.clamp(0, 99999);
+  }
+
+  /// Multiplier koin berdasarkan durasi goal.
+  /// Makin panjang komitmen → makin besar bonus per centangan habit.
+  double get durationMultiplier {
+    if (deadline == null) return 1.0;
+    final days = totalDays;
+    if (days >= 365) return 2.5;
+    if (days >= 180) return 2.0;
+    if (days >= 90)  return 1.5;
+    if (days >= 60)  return 1.3;
+    if (days >= 30)  return 1.2;
+    return 1.0;
+  }
+
+  /// Label bonus koin untuk ditampilkan ke user
+  String get durationBonusLabel {
+    if (deadline == null) return 'Tanpa deadline';
+    final days = totalDays;
+    if (days >= 365) return '🏆 365+ hari → +2.5× koin';
+    if (days >= 180) return '🥇 180+ hari → +2.0× koin';
+    if (days >= 90)  return '🥈 90+ hari → +1.5× koin';
+    if (days >= 60)  return '🥉 60+ hari → +1.3× koin';
+    if (days >= 30)  return '⭐ 30+ hari → +1.2× koin';
+    return '< 30 hari → 1× koin (standar)';
+  }
+
   String get statusLabel {
     switch (status) {
       case GoalStatus.active:    return 'Aktif';

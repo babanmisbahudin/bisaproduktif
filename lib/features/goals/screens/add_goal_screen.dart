@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/goal_model.dart';
 import '../../../data/providers/goal_provider.dart';
+import '../../../core/utils/app_transition.dart';
+import 'goal_detail_screen.dart';
 
 class AddGoalScreen extends StatefulWidget {
   final GoalModel? editGoal;
@@ -41,8 +43,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       _selectedColor = widget.editGoal!.color;
       _selectedDeadline = widget.editGoal!.deadline;
     } else {
-      // Default deadline 1 tahun dari sekarang
-      _selectedDeadline = DateTime.now().add(const Duration(days: 365));
+      _selectedDeadline =
+          DateTime.now().add(const Duration(days: 90)); // default 3 bulan
     }
   }
 
@@ -55,12 +57,14 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
   Future<void> _pickDeadline() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDeadline ?? DateTime.now().add(const Duration(days: 365)),
+      initialDate: _selectedDeadline ??
+          DateTime.now().add(const Duration(days: 90)),
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 3650)), // 10 tahun
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+          colorScheme:
+              const ColorScheme.light(primary: AppColors.primary),
         ),
         child: child!,
       ),
@@ -84,36 +88,46 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
       final goalProvider = context.read<GoalProvider>();
 
       if (_isEditing) {
-        // Update goal (edit mode)
         await goalProvider.updateGoalTitle(
-              goalId: widget.editGoal!.id,
-              newTitle: title,
-            );
-        if (_selectedDeadline != null) {
-          await goalProvider.updateGoalDeadline(
-                goalId: widget.editGoal!.id,
-                deadline: _selectedDeadline,
-              );
+          goalId: widget.editGoal!.id,
+          newTitle: title,
+        );
+        await goalProvider.updateGoalDeadline(
+          goalId: widget.editGoal!.id,
+          deadline: _selectedDeadline,
+        );
+        await goalProvider.updateGoalColor(
+          goalId: widget.editGoal!.id,
+          color: _selectedColor,
+        );
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Goal diperbarui')),
+          );
         }
       } else {
-        // Add new goal
         await goalProvider.addGoal(
-              title: title,
-              coins: 50, // Fixed reward untuk goal selesai
-              color: _selectedColor,
-              deadline: _selectedDeadline,
-            );
-      }
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isEditing ? '✅ Goal diperbarui' : '✅ Goal dibuat',
-            ),
-          ),
+          title: title,
+          color: _selectedColor,
+          deadline: _selectedDeadline,
         );
+
+        // Langsung buka GoalDetailScreen untuk tambah habit
+        final newGoal = goalProvider.goals.last;
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            AppTransition.slideRight(
+              child: GoalDetailScreen(goal: newGoal),
+            ),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Goal dibuat! Sekarang tambahkan habit.'),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -140,48 +154,34 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Goal title input
-            Text(
-              'Nama Goal',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            // Nama goal
+            Text('Nama Goal',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             TextField(
               controller: _titleController,
               decoration: InputDecoration(
-                hintText: 'Contoh: Meningkatkan Iman, Sehat, Produktif...',
+                hintText:
+                    'Contoh: Rajin Ibadah, Sehat, Produktif...',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                    horizontal: 16, vertical: 12),
               ),
             ),
             const SizedBox(height: 24),
 
-            // Deadline picker
-            Text(
-              'Target Selesai',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            // Deadline
+            Text('Target Selesai',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: _pickDeadline,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                    horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(12),
@@ -193,10 +193,7 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                       _selectedDeadline != null
                           ? '📅 ${_selectedDeadline!.day}/${_selectedDeadline!.month}/${_selectedDeadline!.year}'
                           : 'Pilih tanggal',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.textPrimary,
-                      ),
+                      style: GoogleFonts.poppins(fontSize: 14),
                     ),
                     const Icon(Icons.calendar_today, size: 20),
                   ],
@@ -205,15 +202,10 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Color picker
-            Text(
-              'Warna Goal',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            // Warna
+            Text('Warna Goal',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -221,7 +213,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
               children: _colorOptions.map((color) {
                 final isSelected = _selectedColor == color;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedColor = color),
+                  onTap: () =>
+                      setState(() => _selectedColor = color),
                   child: Container(
                     width: 50,
                     height: 50,
@@ -236,41 +229,39 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             // Info
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.blue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '💡 Setelah membuat goal, Anda bisa menambahkan kegiatan/tasks untuk goal ini',
+                    '💡 Setelah membuat goal, kamu bisa tambahkan habit yang ingin dikerjakan setiap hari untuk mencapai goal ini.',
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.blue.shade700,
-                      height: 1.4,
-                    ),
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                        height: 1.5),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
-                    '✓ Reward: 50 koin saat semua kegiatan selesai',
+                    '🪙 Koin dihitung otomatis berdasarkan tingkat kesulitan habit',
                     style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.blue.shade700,
-                      height: 1.4,
-                    ),
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                        height: 1.5),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 32),
 
-            // Submit button
+            // Submit
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -278,6 +269,8 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _selectedColor,
                   padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isLoading
                     ? const SizedBox(
@@ -285,11 +278,14 @@ class _AddGoalScreenState extends State<AddGoalScreen> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                          valueColor:
+                              AlwaysStoppedAnimation(Colors.white),
                         ),
                       )
                     : Text(
-                        _isEditing ? 'Update Goal' : 'Buat Goal',
+                        _isEditing
+                            ? 'Update Goal'
+                            : 'Buat Goal & Tambah Habit →',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           color: Colors.white,

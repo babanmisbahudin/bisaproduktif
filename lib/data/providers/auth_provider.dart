@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/firebase_service.dart';
+import '../../core/services/weather_service.dart';
 import 'admin_provider.dart';
 import 'user_profile_provider.dart';
 import 'habit_provider.dart';
@@ -178,6 +179,23 @@ class AuthProvider extends ChangeNotifier {
       debugPrint('[Auth] Profile synced to Firebase');
     } catch (e) {
       debugPrint('[Auth] Failed to sync profile to Firebase: $e');
+    }
+
+    // 5. Sync lokasi ke Firebase (fire-and-forget, tidak block login)
+    _syncLocationToFirebase();
+  }
+
+  /// Ambil lokasi GPS → reverse geocode → simpan ke Firestore.
+  /// Dipanggil tanpa await agar tidak memperlambat proses login.
+  Future<void> _syncLocationToFirebase() async {
+    try {
+      final location = await WeatherService.getFullAddress();
+      if (location != null && location['displayAddress']!.isNotEmpty) {
+        await FirebaseService.saveUserLocation(location);
+        debugPrint('[Auth] Location synced: ${location['displayAddress']}');
+      }
+    } catch (e) {
+      debugPrint('[Auth] Failed to sync location: $e');
     }
   }
 }

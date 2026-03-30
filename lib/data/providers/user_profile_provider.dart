@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/services/firebase_service.dart';
 
 class UserProfileProvider extends ChangeNotifier {
   static const String _keyName = 'user_name';
@@ -59,6 +60,14 @@ class UserProfileProvider extends ChangeNotifier {
     ]);
 
     notifyListeners();
+  }
+
+  /// Update nomor WhatsApp, simpan lokal + sync ke Firebase.
+  Future<void> updateWhatsapp(String whatsapp) async {
+    _whatsapp = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
+    await _prefs.setString(_keyWhatsapp, _whatsapp);
+    notifyListeners();
+    await FirebaseService.saveWhatsapp(_whatsapp);
   }
 
   /// Auto-populate profile dari Google user info (saat pertama kali login)

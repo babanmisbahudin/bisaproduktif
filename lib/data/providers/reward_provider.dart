@@ -152,7 +152,7 @@ class RewardProvider extends ChangeNotifier {
       title: 'Kopi Premium',
       description: 'Kopi premium arabika pilihan. Sempurna untuk menemani hari produktifmu!',
       price: 20000,
-      category: 'merchandise',
+      category: 'makanan',
       color: Color(0xFF6F4E37),
     ),
 
@@ -163,7 +163,7 @@ class RewardProvider extends ChangeNotifier {
       title: 'Kaos BisaProduktif',
       description: 'Kaos eksklusif branded BisaProduktif premium quality. Banggakan prestasimu!',
       price: 80000,
-      category: 'merchandise',
+      category: 'premium',
       color: Color(0xFF4A7C59),
     ),
 
@@ -174,7 +174,7 @@ class RewardProvider extends ChangeNotifier {
       title: 'Buku Self Improvement',
       description: 'Koleksi buku pengembangan diri terbaik. Investasi terbaik untuk masa depanmu!',
       price: 50000,
-      category: 'merchandise',
+      category: 'voucher',
       color: Color(0xFF1565C0),
     ),
 
@@ -185,7 +185,7 @@ class RewardProvider extends ChangeNotifier {
       title: 'Al Quran Premium',
       description: 'Al Quran edisi premium dengan terjemahan dan tajwid berwarna. Berkah untuk jiwa.',
       price: 100000,
-      category: 'merchandise',
+      category: 'premium',
       color: Color(0xFF2E7D32),
     ),
   ];
@@ -293,14 +293,22 @@ class RewardProvider extends ChangeNotifier {
     final tx = _box.get(transactionId);
     if (tx == null || tx.status != 'pending') return false;
 
-    // Deduct coins saat approval
-    await habitProvider.deductCoins(tx.coinsCost);
+    // CATATAN: koin sudah dipotong saat user request (status pending)
+    // Jangan deduct lagi di sini — cukup update status saja
 
-    // Update status
+    // Update status lokal
     tx.status = 'approved';
     tx.approvedBy = adminEmail;
     tx.approvedAt = DateTime.now();
     await _box.put(transactionId, tx);
+
+    // Sync ke Firebase agar user tahu statusnya diupdate
+    FirebaseService.updateRedemptionStatus(
+      transactionId: transactionId,
+      status: 'approved',
+      adminEmail: adminEmail,
+    );
+
     _loadTransactions();
     notifyListeners();
     return true;
@@ -316,7 +324,7 @@ class RewardProvider extends ChangeNotifier {
     final tx = _box.get(transactionId);
     if (tx == null || tx.status != 'pending') return false;
 
-    // REFUND: kembalikan koin ke user
+    // REFUND: kembalikan koin ke user karena direject
     await habitProvider.addCoins(tx.coinsCost);
 
     tx.status = 'rejected';
@@ -324,6 +332,15 @@ class RewardProvider extends ChangeNotifier {
     tx.approvedAt = DateTime.now();
     tx.rejectionReason = reason;
     await _box.put(transactionId, tx);
+
+    // Sync ke Firebase agar user tahu statusnya diupdate
+    FirebaseService.updateRedemptionStatus(
+      transactionId: transactionId,
+      status: 'rejected',
+      adminEmail: adminEmail,
+      rejectionReason: reason,
+    );
+
     _loadTransactions();
     notifyListeners();
     return true;

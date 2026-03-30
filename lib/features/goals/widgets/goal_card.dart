@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '../../../data/models/goal_model.dart';
-import '../../../data/providers/goal_provider.dart';
-import '../../../data/providers/habit_provider.dart';
 
 class GoalCard extends StatelessWidget {
   final GoalModel goal;
@@ -19,6 +16,9 @@ class GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progress = goal.progressPercent;
+    final percent = (progress * 100).round();
+
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -36,13 +36,13 @@ class GoalCard extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Title + Progress
+              // ── Header ────────────────────────────────────────────────────
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -51,18 +51,25 @@ class GoalCard extends StatelessWidget {
                         Text(
                           goal.title,
                           style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${goal.completedTasks}/${goal.totalTasks} kegiatan selesai',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.self_improvement_rounded,
+                                size: 12, color: Colors.white70),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${goal.linkedCount} habit terkait',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -70,12 +77,10 @@ class GoalCard extends StatelessWidget {
                   // Status badge
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                        horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       goal.isCompleted ? '✅ Selesai' : '🔄 Aktif',
@@ -88,147 +93,113 @@ class GoalCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
-              // Progress bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: goal.progressPercent,
-                  minHeight: 6,
-                  backgroundColor: Colors.white.withValues(alpha: 0.25),
-                  valueColor: const AlwaysStoppedAnimation(Colors.white),
-                ),
+              // ── Progress Bar ──────────────────────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 8,
+                        backgroundColor: Colors.white.withValues(alpha: 0.25),
+                        valueColor:
+                            const AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '$percent%',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
-              // Deadline
-              if (goal.deadline != null) ...[
-                Text(
-                  '📅 Target: ${goal.deadline!.day}/${goal.deadline!.month}/${goal.deadline!.year}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.8),
+              // ── Footer: deadline + hint ───────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (goal.deadline != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded,
+                            size: 11, color: Colors.white70),
+                        const SizedBox(width: 4),
+                        Text(
+                          goal.isCompleted
+                              ? 'Selesai!'
+                              : '${goal.daysLeft} hari lagi',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    const SizedBox(),
+                  Row(
+                    children: [
+                      const Icon(Icons.touch_app_rounded,
+                          size: 11, color: Colors.white54),
+                      const SizedBox(width: 3),
+                      Text(
+                        goal.linkedCount == 0
+                            ? 'Tap untuk tambah habit'
+                            : 'Tap untuk lihat detail',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: Colors.white54,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 12),
-              ],
+                ],
+              ),
 
-              // Tasks list
-              if (goal.tasks.isNotEmpty) ...[
+              // ── Peringatan deadline dekat ─────────────────────────────────
+              if (goal.deadline != null &&
+                  !goal.isCompleted &&
+                  goal.daysLeft <= 7 &&
+                  goal.daysLeft > 0) ...[
+                const SizedBox(height: 10),
                 Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: Colors.red.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Column(
-                    children: goal.tasks.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final task = entry.value;
-                      final isLast = index == goal.tasks.length - 1;
-
-                      return Column(
-                        children: [
-                          _buildTaskTile(context, goal, task),
-                          if (!isLast)
-                            Divider(
-                              height: 1,
-                              color: Colors.white.withValues(alpha: 0.15),
-                            ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                )
-              ] else
-                Center(
-                  child: Text(
-                    'Belum ada kegiatan. Tap untuk tambah!',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontStyle: FontStyle.italic,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          size: 13, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Deadline ${goal.daysLeft} hari lagi!',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ],
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTaskTile(BuildContext context, GoalModel goal, dynamic task) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          // Checkbox
-          GestureDetector(
-            onTap: () {
-              if (task.completed) {
-                context.read<GoalProvider>().uncompleteTask(
-                      goalId: goal.id,
-                      taskId: task.id,
-                      habitProvider: context.read<HabitProvider>(),
-                    );
-              } else {
-                context.read<GoalProvider>().completeTask(
-                      goalId: goal.id,
-                      taskId: task.id,
-                      habitProvider: context.read<HabitProvider>(),
-                    );
-              }
-            },
-            child: Checkbox(
-              value: task.completed,
-              onChanged: (_) {
-                if (task.completed) {
-                  context.read<GoalProvider>().uncompleteTask(
-                        goalId: goal.id,
-                        taskId: task.id,
-                        habitProvider: context.read<HabitProvider>(),
-                      );
-                } else {
-                  context.read<GoalProvider>().completeTask(
-                        goalId: goal.id,
-                        taskId: task.id,
-                        habitProvider: context.read<HabitProvider>(),
-                      );
-                }
-              },
-              fillColor: WidgetStateProperty.all(Colors.white),
-              checkColor: goal.color,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Task name
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                    decoration: task.completed
-                        ? TextDecoration.lineThrough
-                        : TextDecoration.none,
-                  ),
-                ),
-                Text(
-                  '+${task.coins} koin',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

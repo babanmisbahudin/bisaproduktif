@@ -293,6 +293,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     final trustScore = user['trustScore'] as int? ?? 70;
     final name = user['name'] as String? ?? 'Unknown';
     final whatsapp = user['whatsapp'] as String? ?? '-';
+    final locationMap = user['location'] as Map<String, dynamic>? ?? {};
+    final displayAddress = locationMap['displayAddress'] as String? ?? '';
     final trustColor = trustScore >= 80
         ? AppColors.trustHigh
         : trustScore >= 60
@@ -384,7 +386,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
             ],
           ),
           const SizedBox(height: 12),
-          // WhatsApp
+          // WhatsApp + Lokasi
           Row(
             children: [
               const Text('📱', style: TextStyle(fontSize: 13)),
@@ -399,6 +401,21 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (displayAddress.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                const Text('📍', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    displayAddress,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1690,6 +1707,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                       child: Column(
                         children: [
                           _buildInfoRow('📱 WhatsApp', user['whatsapp'] as String? ?? '-'),
+                          const SizedBox(height: 8),
+                          _buildInfoRow(
+                            '📍 Lokasi',
+                            () {
+                              final loc = user['location'] as Map<String, dynamic>? ?? {};
+                              final addr = loc['displayAddress'] as String? ?? '';
+                              return addr.isNotEmpty ? addr : 'Belum terdeteksi';
+                            }(),
+                          ),
                           const SizedBox(height: 8),
                           _buildInfoRow(
                             '🕐 Last Sync',

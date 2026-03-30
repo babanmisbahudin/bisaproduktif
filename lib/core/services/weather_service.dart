@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/dynamic_scene_painter.dart';
 
@@ -26,7 +27,7 @@ class WeatherData {
 }
 
 /// Mendeteksi cuaca real-time dari OpenWeatherMap (primary) atau wttr.in (fallback).
-/// OpenWeatherMap memerlukan API key (gratis, dapat di openweathermap.org).
+/// Lokasi: GPS (jika diizinkan) → IP fallback.
 class WeatherService {
   WeatherService._();
 
@@ -61,7 +62,7 @@ class WeatherService {
     final type = await _fetchWttrIn();
     final data = WeatherData(
       type: type,
-      tempC: 0, // wttr.in tidak provide suhu
+      tempC: 0,
       city: 'Lokasi Anda',
       description: _getDescription(type),
       humidity: 0,
@@ -72,14 +73,35 @@ class WeatherService {
     return data;
   }
 
-  /// Fetch dari OpenWeatherMap API (premium dengan suhu + humidity + wind)
-  static Future<WeatherData?> _fetchOpenWeatherMap(String apiKey) async {
+  /// Dapatkan koordinat GPS (minta izin jika belum).
+  /// Return null jika GPS tidak tersedia atau ditolak.
+  static Future<Map<String, double>?> _getGPSLocation() async {
     try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 8)
-        ..badCertificateCallback = (_, _, _) => true;
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return null;
 
-      // 1. Dapatkan lokasi dari IP
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return null;
+      }
+      if (permission == LocationPermission.deniedForever) return null;
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low, // hemat baterai
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      return {'lat': pos.latitude, 'lon': pos.longitude};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Dapatkan koordinat dari IP sebagai fallback
+  static Future<Map<String, double>?> _getIPLocation(HttpClient client) async {
+    try {
       final locReq = await client
           .getUrl(Uri.parse('https://ipapi.co/json/'))
           .timeout(const Duration(seconds: 8));
@@ -93,8 +115,27 @@ class WeatherService {
       final locJson = jsonDecode(locBody) as Map<String, dynamic>;
       final lat = locJson['latitude'] as double?;
       final lon = locJson['longitude'] as double?;
-
       if (lat == null || lon == null) return null;
+      return {'lat': lat, 'lon': lon};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fetch dari OpenWeatherMap API (GPS → IP fallback untuk lokasi)
+  static Future<WeatherData?> _fetchOpenWeatherMap(String apiKey) async {
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 8)
+        ..badCertificateCallback = (_, _, _) => true;
+
+      // 1. Coba GPS dulu, fallback ke IP
+      final gpsLoc = await _getGPSLocation();
+      Map<String, double>? loc = gpsLoc ?? await _getIPLocation(client);
+      if (loc == null) return null;
+
+      final lat = loc['lat']!;
+      final lon = loc['lon']!;
 
       // 2. Fetch cuaca dari OpenWeatherMap
       final weatherUrl = Uri.parse(
@@ -106,7 +147,8 @@ class WeatherService {
           .timeout(const Duration(seconds: 8));
       weatherReq.headers.set('User-Agent', 'BisaProduktif/1.0');
 
-      final weatherRes = await weatherReq.close().timeout(const Duration(seconds: 8));
+      final weatherRes =
+          await weatherReq.close().timeout(const Duration(seconds: 8));
       final weatherBody =
           (await weatherRes.transform(const SystemEncoding().decoder).toList())
               .join();
@@ -124,7 +166,8 @@ class WeatherService {
 
       final tempC = (mainData['temp'] as num?)?.toDouble() ?? 0;
       final humidity = (mainData['humidity'] as num?)?.toInt() ?? 0;
-      final windSpeed = ((json['wind'] as Map?)?['speed'] as num?)?.toDouble() ?? 0;
+      final windSpeed =
+          ((json['wind'] as Map?)?['speed'] as num?)?.toDouble() ?? 0;
       final city = json['name'] as String? ?? 'Unknown';
       final condition = weatherList[0]['main'] as String? ?? '';
       final description = weatherList[0]['description'] as String? ?? '';
@@ -171,7 +214,7 @@ class WeatherService {
   /// Parse kondisi dari OpenWeatherMap (main field)
   static WeatherType _parseOpenWeatherCondition(String condition) {
     if (_contains(condition.toLowerCase(), [
-      'rain', 'drizzle', 'thunderstorm', 'thunderstorm',
+      'rain', 'drizzle', 'thunderstorm',
     ])) {
       return WeatherType.rainy;
     }
@@ -232,5 +275,70 @@ class WeatherService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('owm_api_key', key);
     _lastFetch = null; // Force refresh
+  }
+
+  // ── Reverse Geocoding ─────────────────────────────────────────────────────
+
+  /// Ambil alamat lengkap dari GPS (kota, provinsi, negara) via Nominatim OSM.
+  /// Return null jika GPS tidak diizinkan atau offline.
+  static Future<Map<String, String>?> getFullAddress() async {
+    final gpsLoc = await _getGPSLocation();
+    if (gpsLoc == null) return null;
+    return _reverseGeocode(gpsLoc['lat']!, gpsLoc['lon']!);
+  }
+
+  static Future<Map<String, String>?> _reverseGeocode(
+      double lat, double lon) async {
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 8)
+        ..badCertificateCallback = (_, _, _) => true;
+
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse'
+        '?format=json&lat=$lat&lon=$lon&addressdetails=1',
+      );
+      final req = await client.getUrl(uri).timeout(const Duration(seconds: 8));
+      // Nominatim wajib User-Agent yang informatif
+      req.headers.set('User-Agent', 'BisaProduktif/1.0 (android)');
+      req.headers.set('Accept-Language', 'id'); // nama wilayah Bahasa Indonesia
+
+      final res = await req.close().timeout(const Duration(seconds: 8));
+      final body =
+          (await res.transform(const SystemEncoding().decoder).toList()).join();
+      client.close();
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final address = json['address'] as Map<String, dynamic>?;
+      if (address == null) return null;
+
+      // Kota/kabupaten: coba beberapa field sesuai tingkat administratif
+      final city = (address['city'] ??
+              address['town'] ??
+              address['village'] ??
+              address['municipality'] ??
+              address['county'] ??
+              '') as String;
+      final state = (address['state'] ?? address['province'] ?? '') as String;
+      final country = (address['country'] ?? '') as String;
+      final countryCode =
+          (address['country_code'] as String? ?? '').toUpperCase();
+
+      // Format ringkas: "Bandung, Jawa Barat"
+      final parts = [city, state].where((s) => s.isNotEmpty).toList();
+      final displayAddress = parts.isNotEmpty ? parts.join(', ') : country;
+
+      return {
+        'city': city,
+        'state': state,
+        'country': country,
+        'countryCode': countryCode,
+        'lat': lat.toStringAsFixed(5),
+        'lon': lon.toStringAsFixed(5),
+        'displayAddress': displayAddress,
+      };
+    } catch (_) {
+      return null;
+    }
   }
 }

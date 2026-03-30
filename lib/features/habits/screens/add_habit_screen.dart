@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/coin_calculator.dart';
+import '../../../core/utils/coin_calculator.dart' hide HabitCategory;
+import '../../../core/utils/habit_difficulty_detector.dart';
 import '../../../data/models/habit_model.dart';
 import '../../../data/providers/habit_provider.dart';
 
@@ -58,6 +59,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     super.dispose();
   }
 
+
   /// Auto-detect kategori berdasarkan judul yang diketik
   void _autoDetectCategory() {
     final title = _titleController.text.toLowerCase();
@@ -105,12 +107,14 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     setState(() => _isLoading = true);
 
     final provider = context.read<HabitProvider>();
+    final category = HabitDifficultyDetector.detect(trimmed);
+
     if (_isEditing) {
       await provider.editHabit(
         id: widget.editHabit!.id,
         title: trimmed,
-        coins: _calculatedCoins,
         color: _selectedColor,
+        category: category,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -120,8 +124,9 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     // Add path: run through validator
     final result = await provider.addHabit(
       title: trimmed,
-      coins: _calculatedCoins,
+      coins: category.baseCoins,
       color: _selectedColor,
+      category: category,
     );
 
     if (!mounted) return;

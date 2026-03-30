@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/services/firebase_service.dart';
 import '../models/transaction_model.dart';
 import 'reward_provider.dart';
@@ -33,6 +35,7 @@ class AdminProvider extends ChangeNotifier {
   // Reward catalog management
   List<RewardItem> _adminRewards = [];
   bool _isLoadingRewards = false;
+  StreamSubscription? _rewardsSub;
 
   String? get adminEmail => _adminEmail;
   bool get isAdmin => _isAdmin;
@@ -172,7 +175,7 @@ class AdminProvider extends ChangeNotifier {
 
   /// Get total coins beredar (sum semua user coins)
   int getTotalCoinsInCirculation() {
-    return _allUsers.fold<int>(0, (sum, user) => sum + (user['totalCoins'] as int? ?? 0));
+    return _allUsers.fold<int>(0, (total, user) => total + (user['totalCoins'] as int? ?? 0));
   }
 
   /// Get trust score distribution untuk chart
@@ -366,21 +369,38 @@ class AdminProvider extends ChangeNotifier {
 
   // ── Reward Catalog Management ──────────────────────────────────────────────
 
-  /// Fetch semua rewards dari Firestore untuk admin catalog
-  Future<void> fetchAdminRewards() async {
+  /// Subscribe real-time ke rewards Firestore untuk admin catalog
+  void fetchAdminRewards() {
     if (!_isAdmin) return;
 
+    _rewardsSub?.cancel();
     _isLoadingRewards = true;
     notifyListeners();
 
-    try {
-      _adminRewards = await FirebaseService.fetchRewards();
-    } catch (e) {
-      debugPrint('[Admin] Error fetching rewards: $e');
-    } finally {
+    _rewardsSub = FirebaseFirestore.instance
+        .collection('rewards')
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .listen((snapshot) {
+      _adminRewards = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return RewardItem(
+          id: doc.id,
+          emoji: data['emoji'] ?? '🎁',
+          title: data['title'] ?? '',
+          description: data['description'] ?? '',
+          price: data['price'] ?? 0,
+          category: data['category'] ?? 'merchandise',
+          color: Color(data['colorValue'] ?? 0xFF4A7C59),
+        );
+      }).toList();
       _isLoadingRewards = false;
       notifyListeners();
-    }
+    }, onError: (e) {
+      debugPrint('[Admin] Error stream rewards: $e');
+      _isLoadingRewards = false;
+      notifyListeners();
+    });
   }
 
   /// Add new reward
@@ -389,8 +409,7 @@ class AdminProvider extends ChangeNotifier {
 
     try {
       await FirebaseService.addReward(reward);
-      // Reload rewards list
-      await fetchAdminRewards();
+      // Stream listener akan auto-update _adminRewards
       return true;
     } catch (e) {
       debugPrint('[Admin] Error adding reward: $e');
@@ -473,5 +492,11 @@ class AdminProvider extends ChangeNotifier {
       debugPrint('[Admin] Error clearing reward history: $e');
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _rewardsSub?.cancel();
+    super.dispose();
   }
 }

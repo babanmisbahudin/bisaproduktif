@@ -32,6 +32,13 @@ class _Star {
   const _Star(this.x, this.y, this.size, this.phase);
 }
 
+class _RainDrop {
+  final double x;     // 0..1 (relative x)
+  final double phase; // 0..1 (stagger start offset)
+  final double speed; // relative speed multiplier
+  const _RainDrop(this.x, this.phase, this.speed);
+}
+
 // ── Widget ────────────────────────────────────────────────────────────────
 
 class DynamicSceneWidget extends StatefulWidget {
@@ -49,6 +56,7 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
   late SceneTime _sceneTime;
   late final List<_Cloud> _clouds;
   late final List<_Star> _stars;
+  late final List<_RainDrop> _rainDrops;
   Timer? _sceneTimer;
 
   @override
@@ -57,6 +65,7 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
     _sceneTime = _fromClock();
     _clouds = _genClouds();
     _stars = _genStars();
+    _rainDrops = _genRainDrops();
 
     // Only cloud animation (slow, 80 sec)
     _cloudCtrl = AnimationController(
@@ -107,6 +116,15 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
     ));
   }
 
+  static List<_RainDrop> _genRainDrops() {
+    final r = math.Random(13);
+    return List.generate(60, (i) => _RainDrop(
+      r.nextDouble(),               // x position
+      r.nextDouble(),               // stagger phase
+      0.7 + r.nextDouble() * 0.6,  // speed multiplier
+    ));
+  }
+
   // Effective scene considering weather override
   SceneTime get _effectiveScene {
     if (widget.weather == WeatherType.hot) return SceneTime.hotAfternoon;
@@ -124,6 +142,7 @@ class _DynamicSceneWidgetState extends State<DynamicSceneWidget>
           cloud: _cloudCtrl.value,
           clouds: _clouds,
           stars: _stars,
+          rainDrops: _rainDrops,
         ),
       ),
     );
@@ -138,6 +157,7 @@ class _ScenePainter extends CustomPainter {
   final double cloud;
   final List<_Cloud> clouds;
   final List<_Star> stars;
+  final List<_RainDrop> rainDrops;
 
   const _ScenePainter({
     required this.scene,
@@ -145,6 +165,7 @@ class _ScenePainter extends CustomPainter {
     required this.cloud,
     required this.clouds,
     required this.stars,
+    required this.rainDrops,
   });
 
   // ── Sky ─────────────────────────────────────────────────────────────────
@@ -180,6 +201,7 @@ class _ScenePainter extends CustomPainter {
 
     if (weather == WeatherType.rainy) {
       _drawStormClouds(canvas, size);
+      _drawRain(canvas, size);
     } else if (scene != SceneTime.night) {
       _drawClouds(canvas, size);
     }
@@ -436,6 +458,30 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+  // ── Rain drops ────────────────────────────────────────────────────────────
+  // Menggunakan cloud controller (80s) dengan faktor ×32 → ~2.5s per siklus
+  void _drawRain(Canvas canvas, Size size) {
+    // rain value cycles fast: (cloud * 32) % 1 ≈ new cycle every 2.5s
+    final rain = (cloud * 32) % 1.0;
+    final p = Paint()
+      ..color = const Color(0xFFB0C4D8).withValues(alpha: 0.55)
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+
+    for (final drop in rainDrops) {
+      // Each drop has its own phase offset → staggered falling
+      final t = (rain * drop.speed + drop.phase) % 1.0;
+      final x = drop.x * size.width;
+      final y = t * size.height * 1.1 - size.height * 0.05;
+      final len = 10.0 + drop.speed * 6;
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(x - 2, y + len),
+        p,
+      );
+    }
+  }
+
   void _drawStormClouds(Canvas canvas, Size size) {
     for (final c in clouds) {
       final x = ((c.x + cloud * c.speed * 3) % 1.25 - 0.12) * size.width;
@@ -658,4 +704,5 @@ class _ScenePainter extends CustomPainter {
       old.cloud != cloud ||
       old.scene != scene ||
       old.weather != weather;
+  // rainDrops list is fixed — no need to include in shouldRepaint
 }

@@ -1,52 +1,50 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/material.dart';
-import 'goal_task_model.dart';
 
 enum GoalStatus { active, completed }
 
 class GoalModel {
   String id;
-  String title; // "Meningkatkan Iman", "Sehat", dll
-  List<GoalTask> tasks; // List of kegiatan/activities
-  int coins; // reward saat goal selesai (semua task done)
+  String title;
+  List<String> linkedHabitIds; // habit yang di-lock ke goal ini
+  int coins;                   // bonus koin saat goal selesai (50 fixed)
   GoalStatus status;
   int colorValue;
   DateTime createdAt;
   DateTime? deadline;
   int order;
+  double progressPercent;      // diupdate oleh GoalProvider saat habit dicentang
 
   GoalModel({
     required this.id,
     required this.title,
-    this.tasks = const [],
+    List<String>? linkedHabitIds,
     required this.coins,
     this.status = GoalStatus.active,
     required this.colorValue,
     required this.createdAt,
     this.deadline,
     required this.order,
-  });
+    this.progressPercent = 0.0,
+  }) : linkedHabitIds = linkedHabitIds ?? [];
 
   Color get color => Color(colorValue);
 
-  /// Progress: completed tasks / total tasks
-  double get progressPercent {
-    if (tasks.isEmpty) return 0.0;
-    final completed = tasks.where((t) => t.completed).length;
-    return (completed / tasks.length).clamp(0.0, 1.0);
+  bool get isCompleted => status == GoalStatus.completed;
+
+  int get linkedCount => linkedHabitIds.length;
+
+  /// Sisa hari menuju deadline
+  int get daysLeft {
+    if (deadline == null) return 0;
+    final diff = deadline!.difference(DateTime.now()).inDays;
+    return diff < 0 ? 0 : diff;
   }
-
-  int get completedTasks => tasks.where((t) => t.completed).length;
-  int get totalTasks => tasks.length;
-
-  bool get isCompleted => status == GoalStatus.completed || (tasks.isNotEmpty && completedTasks == totalTasks);
 
   String get statusLabel {
     switch (status) {
-      case GoalStatus.active:
-        return 'Aktif';
-      case GoalStatus.completed:
-        return 'Selesai';
+      case GoalStatus.active:    return 'Aktif';
+      case GoalStatus.completed: return 'Selesai';
     }
   }
 }
@@ -64,10 +62,20 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
       final key = reader.readByte();
       fields[key] = reader.read();
     }
+
+    // Field 2: dulu List<GoalTask>, sekarang List<String>
+    // Baca dengan try-catch untuk migrasi data lama
+    List<String> linkedHabitIds = [];
+    try {
+      linkedHabitIds = (fields[2] as List?)?.cast<String>() ?? [];
+    } catch (_) {
+      linkedHabitIds = []; // data lama (List<GoalTask>) diabaikan
+    }
+
     return GoalModel(
       id: fields[0] as String,
       title: fields[1] as String,
-      tasks: (fields[2] as List?)?.cast<GoalTask>() ?? [],
+      linkedHabitIds: linkedHabitIds,
       coins: fields[3] as int,
       status: GoalStatus.values[fields[4] as int? ?? 0],
       colorValue: fields[5] as int,
@@ -76,19 +84,20 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
           ? DateTime.fromMillisecondsSinceEpoch(fields[7] as int)
           : null,
       order: fields[8] as int? ?? 0,
+      progressPercent: (fields[9] as double?) ?? 0.0,
     );
   }
 
   @override
   void write(BinaryWriter writer, GoalModel obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.title)
       ..writeByte(2)
-      ..write(obj.tasks)
+      ..write(obj.linkedHabitIds)
       ..writeByte(3)
       ..write(obj.coins)
       ..writeByte(4)
@@ -100,6 +109,8 @@ class GoalModelAdapter extends TypeAdapter<GoalModel> {
       ..writeByte(7)
       ..write(obj.deadline?.millisecondsSinceEpoch)
       ..writeByte(8)
-      ..write(obj.order);
+      ..write(obj.order)
+      ..writeByte(9)
+      ..write(obj.progressPercent);
   }
 }

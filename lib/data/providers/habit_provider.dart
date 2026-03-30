@@ -94,6 +94,8 @@ class HabitProvider extends ChangeNotifier {
     required int coins,
     required Color color,
     int? durationDays,
+    HabitCategory category = HabitCategory.sedang,
+    String? goalId,
   }) async {
     // 1. Validate title content
     final existingTitles = _habits.map((h) => h.title).toList();
@@ -121,15 +123,20 @@ class HabitProvider extends ChangeNotifier {
       _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit mencurigakan');
     }
 
-    // 4. Proceed with creation
+    // 4. Koin ditentukan oleh kategori (bukan user)
+    final habitCoins = category.baseCoins;
+
+    // 5. Proceed with creation
     final habit = HabitModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
-      coins: coins,
+      coins: habitCoins,
       colorValue: color.toARGB32(),
       createdAt: DateTime.now(),
       order: _habits.length,
       durationDays: durationDays,
+      category: category,
+      goalId: goalId,
     );
     await _box.put(habit.id, habit);
     _habits.add(habit);
@@ -138,17 +145,59 @@ class HabitProvider extends ChangeNotifier {
     return titleResult;
   }
 
+  /// Buat habit baru yang langsung terkunci ke goal
+  Future<String?> addHabitToGoal({
+    required String title,
+    required HabitCategory category,
+    required Color color,
+    required String goalId,
+  }) async {
+    final result = await addHabit(
+      title: title,
+      coins: category.baseCoins,
+      color: color,
+      category: category,
+      goalId: goalId,
+    );
+    if (!result.isValid) return null;
+    // Kembalikan id habit yang baru dibuat
+    return _habits.last.id;
+  }
+
   Future<void> editHabit({
     required String id,
     required String title,
-    required int coins,
     required Color color,
+    HabitCategory? category,
   }) async {
     final habit = _box.get(id);
     if (habit == null) return;
     habit.title = title;
-    habit.coins = coins;
+    if (category != null) {
+      habit.category = category;
+      habit.coins = category.baseCoins;
+    }
     habit.colorValue = color.toARGB32();
+    await _box.put(habit.id, habit);
+    _loadHabits();
+    notifyListeners();
+  }
+
+  /// Set goalId di habit (lock habit ke goal)
+  Future<void> setHabitGoalId(String habitId, String goalId) async {
+    final habit = _box.get(habitId);
+    if (habit == null) return;
+    habit.goalId = goalId;
+    await _box.put(habit.id, habit);
+    _loadHabits();
+    notifyListeners();
+  }
+
+  /// Lepas goalId dari habit (dipanggil saat goal dihapus atau habit di-unlink)
+  Future<void> unlinkHabitFromGoal(String habitId) async {
+    final habit = _box.get(habitId);
+    if (habit == null) return;
+    habit.goalId = null;
     await _box.put(habit.id, habit);
     _loadHabits();
     notifyListeners();
@@ -211,8 +260,8 @@ class HabitProvider extends ChangeNotifier {
     habit.streak += 1;
     habit.completionTimestamps.add(timestamp);
 
-    // Simpan max 30 hari terakhir
-    if (habit.completionTimestamps.length > 30) {
+    // Simpan max 365 hari terakhir (1 entri per hari, cukup untuk goal 1 tahun)
+    if (habit.completionTimestamps.length > 365) {
       habit.completionTimestamps.removeAt(0);
     }
 
@@ -223,8 +272,11 @@ class HabitProvider extends ChangeNotifier {
       await goalProvider.syncProgressFromHabits(habit.goalId, _habits);
     }
 
-    // Tambah koin
-    _totalCoins += habit.coins;
+    // Tambah koin berdasarkan kategori + streak multiplier
+    final earnedCoins = _computeCoinsWithStreak(habit);
+    habit.coins = earnedCoins; // simpan supaya report bisa baca nilai real
+    await _box.put(habit.id, habit);
+    _totalCoins += earnedCoins;
     await _saveCoins();
 
     // Trust score naik perlahan saat perilaku wajar
@@ -279,6 +331,22 @@ class HabitProvider extends ChangeNotifier {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Hitung koin berdasarkan kategori + streak multiplier
+  int _computeCoinsWithStreak(HabitModel habit) {
+    final base = habit.category.baseCoins;
+    double multiplier;
+    if (habit.streak >= 30) {
+      multiplier = 2.0;
+    } else if (habit.streak >= 14) {
+      multiplier = 1.5;
+    } else if (habit.streak >= 7) {
+      multiplier = 1.2;
+    } else {
+      multiplier = 1.0;
+    }
+    return (base * multiplier).round();
+  }
 
   String _todayKey() {
     final now = DateTime.now();
@@ -351,35 +419,22 @@ class HabitProvider extends ChangeNotifier {
       ]);
     }
 
-    // Hitung coins per habit berdasarkan durasi goal
-    final habitCoins = _computeHabitCoins(deadline);
-
     for (int i = 0; i < templates.length; i++) {
       final habit = HabitModel(
         id: '${goalId}_${DateTime.now().millisecondsSinceEpoch}_$i',
         title: templates[i],
-        coins: habitCoins,
+        coins: HabitCategory.sedang.baseCoins,
         colorValue: goalColor.toARGB32(),
         createdAt: DateTime.now(),
         order: _habits.length + i,
         goalId: goalId,
+        category: HabitCategory.sedang,
       );
       await _box.put(habit.id, habit);
       _habits.add(habit);
     }
 
     notifyListeners();
-  }
-
-  /// Helper: Hitung coins per habit berdasarkan durasi deadline
-  int _computeHabitCoins(DateTime? deadline) {
-    if (deadline == null) return 25;
-    final days = deadline.difference(DateTime.now()).inDays;
-    if (days > 365) return 60;
-    if (days > 180) return 50;
-    if (days > 90) return 40;
-    if (days > 30) return 30;
-    return 20;
   }
 
   /// Delete all habits yang di-generate dari goal

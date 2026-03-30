@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/goal_model.dart';
-import '../models/goal_task_model.dart';
+import '../models/habit_model.dart';
 
 class GoalProvider extends ChangeNotifier {
   static const String _boxName = 'goals';
@@ -43,19 +43,18 @@ class GoalProvider extends ChangeNotifier {
       ..sort((a, b) => a.order.compareTo(b.order));
   }
 
-  // ── Add Goal (Manual) ─────────────────────────────────────────────────────
+  // ── Add Goal ──────────────────────────────────────────────────────────────
 
   Future<void> addGoal({
     required String title,
-    required int coins,
     required Color color,
     DateTime? deadline,
   }) async {
     final goal = GoalModel(
       id: const Uuid().v4(),
       title: title,
-      tasks: [],
-      coins: coins,
+      linkedHabitIds: [],
+      coins: 50, // bonus tetap saat goal selesai
       status: GoalStatus.active,
       colorValue: color.toARGB32(),
       createdAt: DateTime.now(),
@@ -69,49 +68,57 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Add Task to Goal ──────────────────────────────────────────────────────
+  // ── Link / Unlink Habit ───────────────────────────────────────────────────
 
-  Future<void> addTaskToGoal({
+  /// Tambahkan habit ke goal (lock)
+  Future<void> linkHabitToGoal({
     required String goalId,
-    required String taskName,
-    required int coins,
+    required String habitId,
   }) async {
     final goal = _goals.firstWhere((g) => g.id == goalId);
-
-    final task = GoalTask(
-      id: const Uuid().v4(),
-      name: taskName,
-      coins: coins,
-      createdAt: DateTime.now(),
-    );
-
-    goal.tasks.add(task);
+    if (goal.linkedHabitIds.contains(habitId)) return;
+    goal.linkedHabitIds.add(habitId);
     await _box.put(goal.id, goal);
     notifyListeners();
   }
 
-  // ── Complete Task ─────────────────────────────────────────────────────────
-
-  Future<void> completeTask({
+  /// Lepas habit dari goal (unlock)
+  Future<void> unlinkHabitFromGoal({
     required String goalId,
-    required String taskId,
-    dynamic habitProvider, // untuk add coins
+    required String habitId,
   }) async {
     final goal = _goals.firstWhere((g) => g.id == goalId);
-    final task = goal.tasks.firstWhere((t) => t.id == taskId);
+    goal.linkedHabitIds.remove(habitId);
+    await _box.put(goal.id, goal);
+    notifyListeners();
+  }
 
-    task.completed = true;
-    task.completedAt = DateTime.now();
+  // ── Progress ─────────────────────────────────────────────────────────────
 
-    // Add coins ke user
-    if (habitProvider != null) {
-      await habitProvider.addCoins(task.coins);
+  /// Dipanggil oleh HabitProvider setiap kali habit dicentang
+  Future<void> syncProgressFromHabits(
+    String? goalId,
+    List<HabitModel> allHabits, {
+    dynamic habitProvider, // untuk beri bonus koin saat goal selesai
+  }) async {
+    if (goalId == null) return;
+
+    GoalModel? goal;
+    try {
+      goal = _goals.firstWhere((g) => g.id == goalId);
+    } catch (_) {
+      return;
     }
 
-    // Check if goal is completed (all tasks done)
-    if (goal.completedTasks == goal.totalTasks) {
+    if (goal.isCompleted) return; // sudah selesai, tidak perlu update
+
+    final progress = _calculateProgress(goal, allHabits);
+    goal.progressPercent = progress;
+
+    // Cek apakah goal selesai (progress 100%)
+    if (progress >= 1.0) {
       goal.status = GoalStatus.completed;
-      // Bonus coins untuk goal selesai
+      // Beri bonus koin saat goal selesai
       if (habitProvider != null) {
         await habitProvider.addCoins(goal.coins);
       }
@@ -121,62 +128,61 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Uncomplete Task ───────────────────────────────────────────────────────
+  /// Hitung progress berdasarkan history centangan habit
+  double _calculateProgress(GoalModel goal, List<HabitModel> allHabits) {
+    if (goal.linkedHabitIds.isEmpty) return 0.0;
 
-  Future<void> uncompleteTask({
+    final linkedHabits = allHabits
+        .where((h) => goal.linkedHabitIds.contains(h.id))
+        .toList();
+
+    if (linkedHabits.isEmpty) return 0.0;
+
+    final daysSince =
+        DateTime.now().difference(goal.createdAt).inDays + 1;
+    final expectedTotal = daysSince * linkedHabits.length;
+    if (expectedTotal == 0) return 0.0;
+
+    // Hitung total centangan sejak goal dibuat
+    int actualTotal = 0;
+    for (final habit in linkedHabits) {
+      actualTotal += habit.completionTimestamps.where((ts) {
+        final dt = DateTime.tryParse(ts);
+        return dt != null && !dt.isBefore(goal.createdAt);
+      }).length;
+    }
+
+    return (actualTotal / expectedTotal).clamp(0.0, 1.0);
+  }
+
+  // ── Edit Goal ─────────────────────────────────────────────────────────────
+
+  Future<void> updateGoalTitle({
     required String goalId,
-    required String taskId,
-    dynamic habitProvider, // untuk deduct coins
+    required String newTitle,
   }) async {
     final goal = _goals.firstWhere((g) => g.id == goalId);
-    final task = goal.tasks.firstWhere((t) => t.id == taskId);
-
-    // Deduct coins
-    if (habitProvider != null && task.completed) {
-      await habitProvider.deductCoins(task.coins);
-    }
-
-    task.completed = false;
-    task.completedAt = null;
-
-    // Reset goal status jika sebelumnya completed
-    if (goal.status == GoalStatus.completed) {
-      goal.status = GoalStatus.active;
-      // Deduct goal bonus coins
-      if (habitProvider != null) {
-        await habitProvider.deductCoins(goal.coins);
-      }
-    }
-
+    goal.title = newTitle;
     await _box.put(goal.id, goal);
     notifyListeners();
   }
 
-  // ── Delete Task ───────────────────────────────────────────────────────────
-
-  Future<void> deleteTask({
+  Future<void> updateGoalDeadline({
     required String goalId,
-    required String taskId,
-    dynamic habitProvider,
+    DateTime? deadline,
   }) async {
     final goal = _goals.firstWhere((g) => g.id == goalId);
-    final task = goal.tasks.firstWhere((t) => t.id == taskId);
+    goal.deadline = deadline;
+    await _box.put(goal.id, goal);
+    notifyListeners();
+  }
 
-    // Deduct coins jika task sudah completed
-    if (habitProvider != null && task.completed) {
-      await habitProvider.deductCoins(task.coins);
-    }
-
-    goal.tasks.removeWhere((t) => t.id == taskId);
-
-    // Reset goal completed status jika tidak semua tasks done
-    if (goal.status == GoalStatus.completed && goal.completedTasks < goal.totalTasks) {
-      goal.status = GoalStatus.active;
-      if (habitProvider != null) {
-        await habitProvider.deductCoins(goal.coins);
-      }
-    }
-
+  Future<void> updateGoalColor({
+    required String goalId,
+    required Color color,
+  }) async {
+    final goal = _goals.firstWhere((g) => g.id == goalId);
+    goal.colorValue = color.toARGB32();
     await _box.put(goal.id, goal);
     notifyListeners();
   }
@@ -185,20 +191,14 @@ class GoalProvider extends ChangeNotifier {
 
   Future<void> deleteGoal({
     required String goalId,
-    dynamic habitProvider,
+    dynamic habitProvider, // untuk unlink habits
   }) async {
     final goal = _goals.firstWhere((g) => g.id == goalId);
 
-    // Deduct coins dari completed tasks
+    // Unlink semua habit dari goal ini
     if (habitProvider != null) {
-      for (final task in goal.tasks) {
-        if (task.completed) {
-          await habitProvider.deductCoins(task.coins);
-        }
-      }
-      // Deduct goal bonus jika goal completed
-      if (goal.status == GoalStatus.completed) {
-        await habitProvider.deductCoins(goal.coins);
+      for (final habitId in List<String>.from(goal.linkedHabitIds)) {
+        await habitProvider.unlinkHabitFromGoal(habitId);
       }
     }
 
@@ -214,27 +214,27 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Update Goal Title ─────────────────────────────────────────────────────
+  // ── Getters untuk UI ──────────────────────────────────────────────────────
 
-  Future<void> updateGoalTitle({
-    required String goalId,
-    required String newTitle,
-  }) async {
-    final goal = _goals.firstWhere((g) => g.id == goalId);
-    goal.title = newTitle;
-    await _box.put(goal.id, goal);
-    notifyListeners();
+  GoalModel? getGoalById(String id) {
+    try {
+      return _goals.firstWhere((g) => g.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
-  // ── Update Goal Deadline ──────────────────────────────────────────────────
+  /// Cek apakah sebuah habit sudah di-lock ke goal manapun
+  bool isHabitLinked(String habitId) {
+    return _goals.any((g) => g.linkedHabitIds.contains(habitId));
+  }
 
-  Future<void> updateGoalDeadline({
-    required String goalId,
-    DateTime? deadline,
-  }) async {
-    final goal = _goals.firstWhere((g) => g.id == goalId);
-    goal.deadline = deadline;
-    await _box.put(goal.id, goal);
-    notifyListeners();
+  /// Ambil goal yang meng-link habit tertentu
+  GoalModel? getGoalForHabit(String habitId) {
+    try {
+      return _goals.firstWhere((g) => g.linkedHabitIds.contains(habitId));
+    } catch (_) {
+      return null;
+    }
   }
 }

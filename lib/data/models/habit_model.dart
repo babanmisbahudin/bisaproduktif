@@ -1,6 +1,37 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/material.dart';
 
+enum HabitCategory { ringan, sedang, berat, sangatBerat }
+
+extension HabitCategoryExt on HabitCategory {
+  String get label {
+    switch (this) {
+      case HabitCategory.ringan:     return 'Ringan';
+      case HabitCategory.sedang:     return 'Sedang';
+      case HabitCategory.berat:      return 'Berat';
+      case HabitCategory.sangatBerat: return 'Sangat Berat';
+    }
+  }
+
+  int get baseCoins {
+    switch (this) {
+      case HabitCategory.ringan:     return 3;
+      case HabitCategory.sedang:     return 5;
+      case HabitCategory.berat:      return 10;
+      case HabitCategory.sangatBerat: return 15;
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case HabitCategory.ringan:     return '🌱';
+      case HabitCategory.sedang:     return '⚡';
+      case HabitCategory.berat:      return '🔥';
+      case HabitCategory.sangatBerat: return '💎';
+    }
+  }
+}
+
 class HabitModel {
   String id;
   String title;
@@ -13,8 +44,9 @@ class HabitModel {
   int order;
   // Untuk anti-fraud: simpan timestamp penyelesaian
   List<String> completionTimestamps; // max 30 hari terakhir
-  String? goalId; // null = habit manual, else = auto-generated dari goal
-  int? durationDays; // optional: durasi habit dalam hari (untuk bonus koin)
+  String? goalId; // null = habit bebas, ada nilai = terkunci ke goal ini
+  int? durationDays;
+  HabitCategory category; // menentukan koin per hari
 
   HabitModel({
     required this.id,
@@ -29,6 +61,7 @@ class HabitModel {
     List<String>? completionTimestamps,
     this.goalId,
     this.durationDays,
+    this.category = HabitCategory.sedang,
   }) : completionTimestamps = completionTimestamps ?? [];
 
   Color get color => Color(colorValue);
@@ -56,6 +89,7 @@ class HabitModel {
       'completionTimestamps': completionTimestamps,
       'goalId': goalId,
       'durationDays': durationDays,
+      'category': category.index,
     };
   }
 
@@ -74,6 +108,7 @@ class HabitModel {
           (map['completionTimestamps'] as List?)?.cast<String>() ?? [],
       goalId: map['goalId'] as String?,
       durationDays: map['durationDays'] as int?,
+      category: HabitCategory.values[map['category'] as int? ?? 1],
     );
   }
 }
@@ -105,13 +140,14 @@ class HabitModelAdapter extends TypeAdapter<HabitModel> {
           (fields[9] as List?)?.cast<String>() ?? [],
       goalId: fields[10] as String?,
       durationDays: fields[11] as int?,
+      category: HabitCategory.values[fields[12] as int? ?? 1],
     );
   }
 
   @override
   void write(BinaryWriter writer, HabitModel obj) {
     writer
-      ..writeByte(12) // jumlah field
+      ..writeByte(13) // jumlah field
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -135,6 +171,8 @@ class HabitModelAdapter extends TypeAdapter<HabitModel> {
       ..writeByte(10)
       ..write(obj.goalId)
       ..writeByte(11)
-      ..write(obj.durationDays);
+      ..write(obj.durationDays)
+      ..writeByte(12)
+      ..write(obj.category.index);
   }
 }

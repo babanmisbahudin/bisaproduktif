@@ -7,7 +7,7 @@ import '../../../data/models/goal_model.dart';
 import '../../../data/providers/goal_provider.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../screens/add_goal_screen.dart';
-import '../screens/add_task_screen.dart';
+import '../screens/goal_detail_screen.dart';
 import 'goal_card.dart';
 
 class GoalsTab extends StatelessWidget {
@@ -92,7 +92,7 @@ class GoalsTab extends StatelessWidget {
       },
       child: GoalCard(
         goal: goal,
-        onTap: () => _showAddTaskSheet(context, goal),
+        onTap: () => _showGoalDetail(context, goal),
         onLongPress: () => _showGoalMenu(context, goal),
       ),
     );
@@ -145,10 +145,10 @@ class GoalsTab extends StatelessWidget {
     );
   }
 
-  void _showAddTaskSheet(BuildContext context, GoalModel goal) {
+  void _showGoalDetail(BuildContext context, GoalModel goal) {
     Navigator.push(
       context,
-      AppTransition.slideRight(child: AddTaskScreen(goal: goal)),
+      AppTransition.slideRight(child: GoalDetailScreen(goal: goal)),
     );
   }
 

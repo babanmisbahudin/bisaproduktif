@@ -32,6 +32,40 @@ class FirebaseService {
     }, SetOptions(merge: true));
   }
 
+  /// Simpan nomor WhatsApp user ke Firestore.
+  static Future<void> saveWhatsapp(String whatsapp) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(userId).set({
+        'whatsapp': whatsapp,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[Firebase] Error saving whatsapp: $e');
+    }
+  }
+
+  /// Simpan lokasi user (kota, provinsi, negara) ke Firestore.
+  /// Dipanggil setelah login + dapat izin GPS.
+  static Future<void> saveUserLocation(Map<String, String> location) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(userId).set({
+        'location': {
+          'city': location['city'] ?? '',
+          'state': location['state'] ?? '',
+          'country': location['country'] ?? '',
+          'countryCode': location['countryCode'] ?? '',
+          'displayAddress': location['displayAddress'] ?? '',
+          'lat': location['lat'] ?? '',
+          'lon': location['lon'] ?? '',
+        },
+        'locationUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[Firebase] Error saving location: $e');
+    }
+  }
+
   // ── Coin Sync ───────────────────────────────────────────────────────────
 
   /// Update saldo koin di Firestore.
@@ -131,6 +165,8 @@ class FirebaseService {
           'whatsapp': data['whatsapp'] ?? '-',
           'lastSync': data['lastSync'],
           'isBlocked': data['isBlocked'] ?? false,
+          'location': data['location'] as Map<String, dynamic>? ?? {},
+          'locationUpdatedAt': data['locationUpdatedAt'],
         };
       }).toList();
     } catch (e) {

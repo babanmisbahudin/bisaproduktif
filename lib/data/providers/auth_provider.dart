@@ -65,12 +65,14 @@ class AuthProvider extends ChangeNotifier {
       await _auth.signInWithCredential(credential);
       _user = _auth.currentUser;
 
-      // Simpan nama ke Firestore
+      // Simpan nama ke Firestore TANPA menimpa totalCoins yang sudah ada
       final prefs = await SharedPreferences.getInstance();
+      final currentCoins = prefs.getInt('user_coins') ?? 0;
+      final currentTrustScore = prefs.getInt('trust_score') ?? 70;
       await FirebaseService.saveUserProfile(
         name: prefs.getString('user_name') ?? _user?.displayName ?? '',
-        totalCoins: 0, // akan di-update oleh HabitProvider
-        trustScore: 70,
+        totalCoins: currentCoins, // pakai koin lokal saat ini, bukan 0
+        trustScore: currentTrustScore,
       );
 
       _isLoading = false;

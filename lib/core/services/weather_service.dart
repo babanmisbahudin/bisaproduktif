@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/dynamic_scene_painter.dart';
 
@@ -73,33 +72,7 @@ class WeatherService {
     return data;
   }
 
-  /// Dapatkan koordinat GPS (minta izin jika belum).
-  /// Return null jika GPS tidak tersedia atau ditolak.
-  static Future<Map<String, double>?> _getGPSLocation() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return null;
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return null;
-      }
-      if (permission == LocationPermission.deniedForever) return null;
-
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.low, // hemat baterai
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-      return {'lat': pos.latitude, 'lon': pos.longitude};
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Dapatkan koordinat dari IP sebagai fallback
+  /// Dapatkan koordinat dari IP (tanpa izin lokasi)
   static Future<Map<String, double>?> _getIPLocation(HttpClient client) async {
     try {
       final locReq = await client
@@ -129,9 +102,8 @@ class WeatherService {
         ..connectionTimeout = const Duration(seconds: 8)
         ..badCertificateCallback = (_, _, _) => true;
 
-      // 1. Coba GPS dulu, fallback ke IP
-      final gpsLoc = await _getGPSLocation();
-      Map<String, double>? loc = gpsLoc ?? await _getIPLocation(client);
+      // 1. Lokasi via IP (tanpa izin GPS)
+      Map<String, double>? loc = await _getIPLocation(client);
       if (loc == null) return null;
 
       final lat = loc['lat']!;
@@ -279,12 +251,20 @@ class WeatherService {
 
   // ── Reverse Geocoding ─────────────────────────────────────────────────────
 
-  /// Ambil alamat lengkap dari GPS (kota, provinsi, negara) via Nominatim OSM.
-  /// Return null jika GPS tidak diizinkan atau offline.
+  /// Ambil alamat dari IP (kota, provinsi, negara) via Nominatim OSM.
+  /// Tidak membutuhkan izin lokasi.
   static Future<Map<String, String>?> getFullAddress() async {
-    final gpsLoc = await _getGPSLocation();
-    if (gpsLoc == null) return null;
-    return _reverseGeocode(gpsLoc['lat']!, gpsLoc['lon']!);
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 8)
+        ..badCertificateCallback = (_, _, _) => true;
+      final ipLoc = await _getIPLocation(client);
+      client.close();
+      if (ipLoc == null) return null;
+      return _reverseGeocode(ipLoc['lat']!, ipLoc['lon']!);
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<Map<String, String>?> _reverseGeocode(

@@ -51,9 +51,6 @@ dependencies:
   # Timer & Async
   countup: ^0.1.3
 
-  # GPS Location (untuk cuaca real-time)
-  geolocator: ^13.0.1
-
   # Google Mobile Ads (AdMob)
   google_mobile_ads: ^5.1.0
 

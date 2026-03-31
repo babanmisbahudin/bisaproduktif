@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/content_validator.dart';
 import '../models/habit_model.dart';
 
-class HabitProvider extends ChangeNotifier {
+class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const String _boxName = 'habits';
   static const String _coinsKey = 'user_coins';
   static const String _trustScoreKey = 'trust_score';
@@ -37,7 +37,25 @@ class HabitProvider extends ChangeNotifier {
     await _resetIfNewDay();
     _loadHabits();
     _isLoaded = true;
+    // Pantau lifecycle agar reset harian berjalan saat app kembali dari background
+    WidgetsBinding.instance.addObserver(this);
     notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resetIfNewDay().then((_) {
+        _loadHabits();
+        notifyListeners();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadCoins() async {

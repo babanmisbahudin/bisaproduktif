@@ -491,7 +491,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildWhatsappCard(UserProfileProvider profileProvider) {
     final wa = profileProvider.whatsapp;
-    final hasWa = wa.isNotEmpty;
+    final addr = profileProvider.address;
+    final isComplete = wa.isNotEmpty && addr.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -500,7 +501,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasWa
+          color: isComplete
               ? Colors.green.withValues(alpha: 0.4)
               : Colors.orange.withValues(alpha: 0.4),
           width: 1.5,
@@ -516,13 +517,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
-              const Text('📱', style: TextStyle(fontSize: 18)),
+              const Text('📋', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Data Kontak',
+                  'Data Pengiriman Reward',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -533,12 +535,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               TextButton.icon(
                 onPressed: () => _showWhatsappEditSheet(profileProvider),
                 icon: Icon(
-                  hasWa ? Icons.edit_outlined : Icons.add,
+                  isComplete ? Icons.edit_outlined : Icons.add,
                   size: 16,
                   color: AppColors.primary,
                 ),
                 label: Text(
-                  hasWa ? 'Edit' : 'Isi Sekarang',
+                  isComplete ? 'Edit' : 'Isi Sekarang',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -552,38 +554,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          // WhatsApp row
           Row(
             children: [
-              Icon(
-                Icons.phone,
-                size: 18,
-                color: hasWa ? Colors.green : Colors.orange,
-              ),
+              Icon(Icons.phone, size: 18,
+                  color: wa.isNotEmpty ? Colors.green : Colors.orange),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  hasWa ? wa : 'Belum diisi — diperlukan untuk tukar reward',
+                  wa.isNotEmpty ? wa : 'Nomor WA belum diisi',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    fontWeight: hasWa ? FontWeight.w600 : FontWeight.w400,
-                    color: hasWa
+                    fontWeight: wa.isNotEmpty ? FontWeight.w600 : FontWeight.w400,
+                    color: wa.isNotEmpty
                         ? _getTextPrimaryColor(context)
                         : Colors.orange.shade700,
-                    fontStyle: hasWa ? FontStyle.normal : FontStyle.italic,
+                    fontStyle: wa.isNotEmpty ? FontStyle.normal : FontStyle.italic,
                   ),
                 ),
               ),
-              if (hasWa)
-                Icon(Icons.check_circle, color: Colors.green, size: 18),
+              if (wa.isNotEmpty)
+                const Icon(Icons.check_circle, color: Colors.green, size: 18),
             ],
           ),
-          if (!hasWa) ...[
-            const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          // Alamat row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.location_on, size: 18,
+                  color: addr.isNotEmpty ? Colors.green : Colors.orange),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  addr.isNotEmpty ? addr : 'Alamat pengiriman belum diisi',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: addr.isNotEmpty ? FontWeight.w500 : FontWeight.w400,
+                    color: addr.isNotEmpty
+                        ? _getTextPrimaryColor(context)
+                        : Colors.orange.shade700,
+                    fontStyle: addr.isNotEmpty ? FontStyle.normal : FontStyle.italic,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              if (addr.isNotEmpty)
+                const Icon(Icons.check_circle, color: Colors.green, size: 18),
+            ],
+          ),
+          if (!isComplete) ...[
+            const SizedBox(height: 10),
             Text(
-              '⚠️ Admin membutuhkan nomor WhatsApp untuk mengirim reward.',
+              '⚠️ Lengkapi data ini agar admin bisa mengirimkan rewardmu.',
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 color: Colors.orange.shade700,
+                height: 1.4,
               ),
             ),
           ],
@@ -593,9 +620,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _showWhatsappEditSheet(UserProfileProvider profileProvider) async {
-    final ctrl = TextEditingController(text: profileProvider.whatsapp);
-    bool saving = false;
-
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -603,136 +627,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle bar
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Nomor WhatsApp',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Admin menggunakan nomor ini untuk konfirmasi penukaran reward.',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.phone,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Contoh: 08123456789 atau +628123456789',
-                  hintStyle: GoogleFonts.poppins(fontSize: 13),
-                  prefixIcon: const Icon(Icons.phone, color: AppColors.primary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final raw = ctrl.text.replaceAll(RegExp(r'[^\d+]'), '');
-                          if (raw.length < 9) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Nomor minimal 9 digit',
-                                  style: GoogleFonts.poppins(),
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          setSheetState(() => saving = true);
-                          await profileProvider.updateWhatsapp(raw);
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '✅ Nomor WhatsApp disimpan!',
-                                  style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: saving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          'Simpan',
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (ctx) => _WhatsappEditSheet(
+        profileProvider: profileProvider,
+        parentContext: context,
       ),
     );
-    ctrl.dispose();
   }
 
   /// Build Google Account Card (Readonly)
@@ -883,4 +782,221 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+}
+
+// ── WhatsApp Edit Bottom Sheet ────────────────────────────────────────────────
+// Dedicated StatefulWidget so TextEditingController lifecycle is managed via
+// initState/dispose — prevents "used after disposed" from parent rebuilds.
+
+class _WhatsappEditSheet extends StatefulWidget {
+  final UserProfileProvider profileProvider;
+  final BuildContext parentContext;
+
+  const _WhatsappEditSheet({
+    required this.profileProvider,
+    required this.parentContext,
+  });
+
+  @override
+  State<_WhatsappEditSheet> createState() => _WhatsappEditSheetState();
+}
+
+class _WhatsappEditSheetState extends State<_WhatsappEditSheet> {
+  late final TextEditingController _waCtrl;
+  late final TextEditingController _addrCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _waCtrl = TextEditingController(text: widget.profileProvider.whatsapp);
+    _addrCtrl = TextEditingController(text: widget.profileProvider.address);
+  }
+
+  @override
+  void dispose() {
+    _waCtrl.dispose();
+    _addrCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 28,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Data Pengiriman Reward',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Admin menggunakan data ini untuk menghubungi dan mengirimkan rewardmu.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          // ── WhatsApp ────────────────────────────────────────────
+          Text(
+            'Nomor WhatsApp',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _waCtrl,
+            keyboardType: TextInputType.phone,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Contoh: 08123456789',
+              hintStyle: GoogleFonts.poppins(fontSize: 13),
+              prefixIcon: const Icon(Icons.phone, color: AppColors.primary),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // ── Alamat ─────────────────────────────────────────────
+          Text(
+            'Alamat Pengiriman',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _addrCtrl,
+            keyboardType: TextInputType.streetAddress,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Jl. Nama Jalan No. X, Kelurahan, Kota, Provinsi',
+              hintStyle: GoogleFonts.poppins(fontSize: 12),
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(bottom: 40),
+                child: Icon(Icons.location_on, color: AppColors.primary),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      final rawWa = _waCtrl.text.replaceAll(RegExp(r'[^\d+]'), '');
+                      final rawAddr = _addrCtrl.text.trim();
+                      if (rawWa.length < 9) {
+                        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text('Nomor WA minimal 9 digit',
+                                style: GoogleFonts.poppins()),
+                          ),
+                        );
+                        return;
+                      }
+                      if (rawAddr.length < 10) {
+                        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text('Isi alamat lengkap ya 📍',
+                                style: GoogleFonts.poppins()),
+                          ),
+                        );
+                        return;
+                      }
+                      setState(() => _saving = true);
+                      await widget.profileProvider.updateWhatsapp(rawWa);
+                      await widget.profileProvider.updateAddress(rawAddr);
+                      if (mounted) Navigator.pop(context);
+                      if (widget.parentContext.mounted) {
+                        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '✅ Data pengiriman disimpan!',
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                            ),
+                            backgroundColor: Colors.green,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      'Simpan Data',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

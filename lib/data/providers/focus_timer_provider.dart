@@ -53,7 +53,14 @@ class FocusTimerProvider extends ChangeNotifier {
   // ── Init ────────────────────────────────────────────────────────────────────
 
   Future<void> init() async {
-    _box = await Hive.openBox<FocusSessionModel>(_boxName);
+    try {
+      _box = await Hive.openBox<FocusSessionModel>(_boxName);
+    } catch (e) {
+      // Data lama tidak kompatibel dengan adapter baru — hapus dan buat ulang
+      debugPrint('[FocusTimer] Box corrupt, resetting: $e');
+      await Hive.deleteBoxFromDisk(_boxName);
+      _box = await Hive.openBox<FocusSessionModel>(_boxName);
+    }
     _loadSessions();
     _isLoaded = true;
     notifyListeners();
@@ -91,8 +98,8 @@ class FocusTimerProvider extends ChangeNotifier {
 
     debugPrint('[FocusTimer] Session created - duration: $_remainingSeconds secs, isActive: $_isActive');
 
-    // Save session ke Hive
-    await _box.put(_currentSession!.id, _currentSession!);
+    // Save session ke Hive (skip jika box belum siap)
+    if (_isLoaded) await _box.put(_currentSession!.id, _currentSession!);
     _sessions.insert(0, _currentSession!);
 
     // Smart Timer: Simpan start time ke SharedPreferences untuk recovery
@@ -130,7 +137,7 @@ class FocusTimerProvider extends ChangeNotifier {
       _currentSession?.elapsedSeconds = elapsedSeconds;
 
       // Save progress setiap detik untuk recovery
-      _box.put(_currentSession!.id, _currentSession!);
+      if (_isLoaded) _box.put(_currentSession!.id, _currentSession!);
 
       // Debug: log setiap 5 detik
       if (_remainingSeconds % 5 == 0 && prevRemaining != _remainingSeconds) {
@@ -174,7 +181,7 @@ class FocusTimerProvider extends ChangeNotifier {
         _lastRewardCoins = reward;
       }
 
-      _box.put(_currentSession!.id, _currentSession!);
+      if (_isLoaded) _box.put(_currentSession!.id, _currentSession!);
     }
     // Expose ke FocusTimerScreen untuk dikonsumsi
     if (_linkedHabitId != null) {
@@ -215,7 +222,8 @@ class FocusTimerProvider extends ChangeNotifier {
         // Session masih berlangsung, restore state
         debugPrint('[FocusTimer] Restoring session: $sessionId');
 
-        // Load session dari Hive
+        // Load session dari Hive (skip jika box belum siap)
+        if (!_isLoaded) return;
         final session = _box.get(sessionId);
         if (session != null && !session.isCompleted) {
           _currentSession = session;
@@ -301,7 +309,7 @@ class FocusTimerProvider extends ChangeNotifier {
       reward = calculateFocusReward(_currentSession!);
       _lastRewardCoins = reward;
 
-      await _box.put(_currentSession!.id, _currentSession!);
+      if (_isLoaded) await _box.put(_currentSession!.id, _currentSession!);
     }
 
     await _clearSessionPrefs();
@@ -319,7 +327,7 @@ class FocusTimerProvider extends ChangeNotifier {
     await _clearSessionPrefs();
 
     if (_currentSession != null) {
-      await _box.delete(_currentSession!.id);
+      if (_isLoaded) await _box.delete(_currentSession!.id);
       _sessions.removeWhere((s) => s.id == _currentSession!.id);
     }
 
@@ -473,7 +481,7 @@ class FocusTimerProvider extends ChangeNotifier {
     _sessions.clear();
     _currentSession = null;
     _isActive = false;
-    await _box.clear();
+    if (_isLoaded) await _box.clear();
     notifyListeners();
   }
 

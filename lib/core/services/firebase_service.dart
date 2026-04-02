@@ -178,15 +178,20 @@ class FirebaseService {
   // ── Redemption Sync ─────────────────────────────────────────────────────────
 
   /// Simpan redemption request ke Firestore global collection untuk admin
-  static Future<void> saveRedemptionRequest(TransactionModel tx) async {
+  static Future<void> saveRedemptionRequest(
+    TransactionModel tx, {
+    String userWhatsapp = '',
+    String userAddress = '',
+  }) async {
     try {
-      // Simpan dengan userEmail dari current user
       final userEmail = _auth.currentUser?.email ?? '';
       await _db.collection('redemptions').doc(tx.id).set({
         'id': tx.id,
         'userId': tx.userId,
         'userEmail': userEmail,
         'userName': tx.userName,
+        'userWhatsapp': userWhatsapp,
+        'userAddress': userAddress,
         'rewardId': tx.rewardId,
         'rewardTitle': tx.rewardTitle,
         'rewardEmoji': tx.rewardEmoji,
@@ -203,6 +208,22 @@ class FirebaseService {
     }
   }
 
+  /// Simpan nomor WhatsApp + alamat user ke Firestore.
+  static Future<void> saveUserContactInfo({
+    required String whatsapp,
+    required String address,
+  }) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(userId).set({
+        'whatsapp': whatsapp,
+        'address': address,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[Firebase] Error saving contact info: $e');
+    }
+  }
+
   /// Ambil semua pending redemption dari Firestore untuk admin
   /// Returns list of {id, userId, userEmail, userName, rewardTitle, coinsCost, timestamp, status, rewardEmoji}
   static Future<List<Map<String, dynamic>>> getAllPendingRedemptions() async {
@@ -211,26 +232,48 @@ class FirebaseService {
       final snapshot = await _db
           .collection('redemptions')
           .where('status', isEqualTo: 'pending')
-          .orderBy('timestamp', descending: true)
           .get();
 
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          'userId': data['userId'] as String? ?? '',
-          'userEmail': data['userEmail'] as String? ?? '',
-          'userName': data['userName'] as String? ?? 'Unknown',
-          'rewardTitle': data['rewardTitle'] as String? ?? 'Unknown Reward',
-          'rewardEmoji': data['rewardEmoji'] as String? ?? '🎁',
-          'coinsCost': data['coinsCost'] as int? ?? 0,
-          'timestamp': (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          'status': data['status'] as String? ?? 'pending',
-        };
-      }).toList();
-    } catch (_) {
+      final results = snapshot.docs.map((doc) => _redemptionFromDoc(doc)).toList();
+      results.sort((a, b) => (b['timestamp'] as DateTime).compareTo(a['timestamp'] as DateTime));
+      return results;
+    } catch (e) {
+      debugPrint('[Firebase] Error fetching pending redemptions: $e');
       return [];
     }
+  }
+
+  /// Ambil SEMUA redemption (semua status) dari Firestore untuk admin
+  static Future<List<Map<String, dynamic>>> getAllRedemptions() async {
+    if (!isLoggedIn) return [];
+    try {
+      final snapshot = await _db.collection('redemptions').get();
+      final results = snapshot.docs.map((doc) => _redemptionFromDoc(doc)).toList();
+      results.sort((a, b) => (b['timestamp'] as DateTime).compareTo(a['timestamp'] as DateTime));
+      return results;
+    } catch (e) {
+      debugPrint('[Firebase] Error fetching all redemptions: $e');
+      return [];
+    }
+  }
+
+  static Map<String, dynamic> _redemptionFromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return {
+      'id': doc.id,
+      'userId': data['userId'] as String? ?? '',
+      'userEmail': data['userEmail'] as String? ?? '',
+      'userName': data['userName'] as String? ?? 'Unknown',
+      'rewardTitle': data['rewardTitle'] as String? ?? 'Unknown Reward',
+      'rewardEmoji': data['rewardEmoji'] as String? ?? '🎁',
+      'coinsCost': data['coinsCost'] as int? ?? 0,
+      'timestamp': (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      'status': data['status'] as String? ?? 'pending',
+      'userWhatsapp': data['userWhatsapp'] as String? ?? '',
+      'userAddress': data['userAddress'] as String? ?? '',
+      'approvedBy': data['approvedBy'] as String? ?? '',
+      'rejectionReason': data['rejectionReason'] as String? ?? '',
+    };
   }
 
   /// Update status redemption (approve/reject) di Firestore

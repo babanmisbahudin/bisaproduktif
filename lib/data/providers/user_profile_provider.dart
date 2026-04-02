@@ -7,7 +7,7 @@ class UserProfileProvider extends ChangeNotifier {
   static const String _keyAddress = 'user_address';
   static const String _keyWhatsapp = 'user_whatsapp';
 
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs;
 
   String _name = '';
   String _address = '';
@@ -19,15 +19,16 @@ class UserProfileProvider extends ChangeNotifier {
 
   bool get isProfileComplete => _name.isNotEmpty && _address.isNotEmpty && _whatsapp.isNotEmpty;
 
-  Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
-    _loadProfile();
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
   }
 
-  void _loadProfile() {
-    _name = _prefs.getString(_keyName) ?? '';
-    _address = _prefs.getString(_keyAddress) ?? '';
-    _whatsapp = _prefs.getString(_keyWhatsapp) ?? '';
+  Future<void> init() async {
+    final prefs = await _getPrefs();
+    _name = prefs.getString(_keyName) ?? '';
+    _address = prefs.getString(_keyAddress) ?? '';
+    _whatsapp = prefs.getString(_keyWhatsapp) ?? '';
   }
 
   Future<void> updateProfile({
@@ -37,12 +38,13 @@ class UserProfileProvider extends ChangeNotifier {
   }) async {
     _name = name.trim();
     _address = address.trim();
-    _whatsapp = whatsapp.replaceAll(RegExp(r'[^\d+]'), ''); // Sanitize whatsapp (hanya angka & +)
+    _whatsapp = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
 
+    final prefs = await _getPrefs();
     await Future.wait([
-      _prefs.setString(_keyName, _name),
-      _prefs.setString(_keyAddress, _address),
-      _prefs.setString(_keyWhatsapp, _whatsapp),
+      prefs.setString(_keyName, _name),
+      prefs.setString(_keyAddress, _address),
+      prefs.setString(_keyWhatsapp, _whatsapp),
     ]);
 
     notifyListeners();
@@ -53,21 +55,38 @@ class UserProfileProvider extends ChangeNotifier {
     _address = '';
     _whatsapp = '';
 
+    final prefs = await _getPrefs();
     await Future.wait([
-      _prefs.remove(_keyName),
-      _prefs.remove(_keyAddress),
-      _prefs.remove(_keyWhatsapp),
+      prefs.remove(_keyName),
+      prefs.remove(_keyAddress),
+      prefs.remove(_keyWhatsapp),
     ]);
 
     notifyListeners();
   }
 
-  /// Update nomor WhatsApp, simpan lokal + sync ke Firebase.
+  /// Update nomor WhatsApp, simpan lokal + sync kontak ke Firebase.
   Future<void> updateWhatsapp(String whatsapp) async {
     _whatsapp = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
-    await _prefs.setString(_keyWhatsapp, _whatsapp);
+    final prefs = await _getPrefs();
+    await prefs.setString(_keyWhatsapp, _whatsapp);
     notifyListeners();
-    await FirebaseService.saveWhatsapp(_whatsapp);
+    await FirebaseService.saveUserContactInfo(
+      whatsapp: _whatsapp,
+      address: _address,
+    );
+  }
+
+  /// Update alamat, simpan lokal + sync kontak ke Firebase.
+  Future<void> updateAddress(String address) async {
+    _address = address.trim();
+    final prefs = await _getPrefs();
+    await prefs.setString(_keyAddress, _address);
+    notifyListeners();
+    await FirebaseService.saveUserContactInfo(
+      whatsapp: _whatsapp,
+      address: _address,
+    );
   }
 
   /// Auto-populate profile dari Google user info (saat pertama kali login)
@@ -75,20 +94,17 @@ class UserProfileProvider extends ChangeNotifier {
     required String googleName,
     required String googleEmail,
   }) async {
-    // Hanya auto-populate jika profile belum lengkap
+    final prefs = await _getPrefs();
+
     if (_name.isEmpty) {
       _name = googleName.isEmpty ? 'User' : googleName;
-      await _prefs.setString(_keyName, _name);
+      await prefs.setString(_keyName, _name);
     }
 
-    // Address di-isi dengan placeholder (user harus edit nanti)
     if (_address.isEmpty) {
-      _address = googleEmail; // Placeholder: gunakan email
-      await _prefs.setString(_keyAddress, _address);
+      _address = googleEmail;
+      await prefs.setString(_keyAddress, _address);
     }
-
-    // WhatsApp tetap kosong (opsional, user harus isi)
-    // Tidak ada perubahan pada _whatsapp
 
     notifyListeners();
   }

@@ -29,6 +29,7 @@ class AdminProvider extends ChangeNotifier {
 
   // Redemption management (from Firebase)
   List<Map<String, dynamic>> _pendingRedemptions = [];
+  List<Map<String, dynamic>> _allRedemptions = [];
   bool _isLoadingRedemptions = false;
   String? _redemptionsError;
 
@@ -44,6 +45,7 @@ class AdminProvider extends ChangeNotifier {
   bool get isLoadingUsers => _isLoadingUsers;
   String? get usersError => _usersError;
   List<Map<String, dynamic>> get pendingRedemptions => List.unmodifiable(_pendingRedemptions);
+  List<Map<String, dynamic>> get allRedemptions => List.unmodifiable(_allRedemptions);
   bool get isLoadingRedemptions => _isLoadingRedemptions;
   String? get redemptionsError => _redemptionsError;
   List<RewardItem> get adminRewards => List.unmodifiable(_adminRewards);
@@ -317,6 +319,30 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  /// Fetch SEMUA redemptions (semua status) dari Firebase
+  Future<void> fetchAllRedemptions() async {
+    if (!_isAdmin) return;
+
+    _isLoadingRedemptions = true;
+    _redemptionsError = null;
+    notifyListeners();
+
+    try {
+      _allRedemptions = await FirebaseService.getAllRedemptions();
+      // Juga update pending list dari data yang sama
+      _pendingRedemptions = _allRedemptions
+          .where((r) => r['status'] == 'pending')
+          .toList();
+      _redemptionsError = null;
+    } catch (e) {
+      _redemptionsError = 'Error: ${e.toString()}';
+      debugPrint('[Admin] Error fetching all redemptions: $e');
+    } finally {
+      _isLoadingRedemptions = false;
+      notifyListeners();
+    }
+  }
+
   /// Approve pending redemption dari Firebase
   Future<bool> approveFirebaseRedemption({
     required String transactionId,
@@ -332,8 +358,17 @@ class AdminProvider extends ChangeNotifier {
         adminEmail: _adminEmail!,
       );
 
-      // Reload redemptions dari Firebase
-      await fetchAllPendingRedemptions();
+      // Update status lokal secara langsung (tanpa fetch ulang)
+      final idx = _allRedemptions.indexWhere((r) => r['id'] == transactionId);
+      if (idx != -1) {
+        _allRedemptions[idx] = Map.from(_allRedemptions[idx])
+          ..['status'] = 'approved'
+          ..['approvedBy'] = _adminEmail;
+        _pendingRedemptions = _allRedemptions
+            .where((r) => r['status'] == 'pending')
+            .toList();
+        notifyListeners();
+      }
       return true;
     } catch (e) {
       debugPrint('[Admin] Error approving redemption: $e');
@@ -358,8 +393,18 @@ class AdminProvider extends ChangeNotifier {
         rejectionReason: reason,
       );
 
-      // Reload redemptions dari Firebase
-      await fetchAllPendingRedemptions();
+      // Update status lokal secara langsung (tanpa fetch ulang)
+      final idx = _allRedemptions.indexWhere((r) => r['id'] == transactionId);
+      if (idx != -1) {
+        _allRedemptions[idx] = Map.from(_allRedemptions[idx])
+          ..['status'] = 'rejected'
+          ..['approvedBy'] = _adminEmail
+          ..['rejectionReason'] = reason;
+        _pendingRedemptions = _allRedemptions
+            .where((r) => r['status'] == 'pending')
+            .toList();
+        notifyListeners();
+      }
       return true;
     } catch (e) {
       debugPrint('[Admin] Error rejecting redemption: $e');

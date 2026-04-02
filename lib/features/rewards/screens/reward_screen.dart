@@ -574,8 +574,17 @@ class _RewardScreenState extends State<RewardScreen> {
                     onPressed: (canAfford && !isFrozen)
                         ? () async {
                             Navigator.pop(context);
-                            await _processRedeem(
-                                reward, habitProvider, rewardProvider);
+                            final profileProvider =
+                                context.read<UserProfileProvider>();
+                            if (profileProvider.whatsapp.isEmpty) {
+                              // WA belum diisi — minta user isi dulu
+                              // sebelum koin dipotong
+                              await _showWaRequiredSheet(
+                                  reward, habitProvider, rewardProvider);
+                            } else {
+                              await _processRedeem(
+                                  reward, habitProvider, rewardProvider);
+                            }
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
@@ -600,7 +609,186 @@ class _RewardScreenState extends State<RewardScreen> {
     );
   }
 
-  // ── WhatsApp Input Sheet ──────────────────────────────────────────────────
+  // ── WhatsApp Required Sheet ───────────────────────────────────────────────
+
+  Future<void> _showWaRequiredSheet(
+    RewardItem reward,
+    HabitProvider habitProvider,
+    RewardProvider rewardProvider,
+  ) async {
+    final profileProvider = context.read<UserProfileProvider>();
+    String waInput = profileProvider.whatsapp;
+    String addressInput = profileProvider.address;
+    bool saving = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                '📋 Data Pengiriman Diperlukan',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Admin membutuhkan nomor WA dan alamatmu untuk mengirimkan reward ${reward.emoji} ${reward.title}.',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Nomor WhatsApp',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: waInput,
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                onChanged: (v) => waInput = v,
+                decoration: InputDecoration(
+                  hintText: 'Contoh: 08123456789',
+                  hintStyle: GoogleFonts.poppins(fontSize: 13),
+                  prefixIcon: const Icon(Icons.phone, color: AppColors.primary),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Alamat Lengkap',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: addressInput,
+                keyboardType: TextInputType.streetAddress,
+                maxLines: 3,
+                onChanged: (v) => addressInput = v,
+                decoration: InputDecoration(
+                  hintText: 'Jl. Contoh No. 1, Kota, Provinsi',
+                  hintStyle: GoogleFonts.poppins(fontSize: 13),
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 40),
+                    child: Icon(Icons.location_on, color: AppColors.primary),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final rawWa = waInput.replaceAll(RegExp(r'[^\d+]'), '');
+                          if (rawWa.length < 9) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Nomor WA minimal 9 digit', style: GoogleFonts.poppins())),
+                            );
+                            return;
+                          }
+                          if (addressInput.trim().length < 10) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Isi alamat lengkap ya 📍', style: GoogleFonts.poppins())),
+                            );
+                            return;
+                          }
+                          setSheet(() => saving = true);
+                          await profileProvider.updateWhatsapp(rawWa);
+                          await profileProvider.updateAddress(addressInput.trim());
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (mounted) {
+                            await _processRedeem(reward, habitProvider, rewardProvider);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Simpan & Tukar Reward',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _processRedeem(
     RewardItem reward,
@@ -619,6 +807,8 @@ class _RewardScreenState extends State<RewardScreen> {
       habitProvider: habitProvider,
       userId: userId,
       userName: userName,
+      userWhatsapp: profileProvider.whatsapp,
+      userAddress: profileProvider.address,
     );
 
     if (!mounted) return;

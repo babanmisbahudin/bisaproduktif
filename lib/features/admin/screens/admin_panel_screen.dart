@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/reward_provider.dart';
@@ -26,7 +27,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     // Fetch users, redemptions, dan rewards saat screen dibuka
     Future.microtask(() {
       final adminProvider = context.read<AdminProvider>();
-      adminProvider.fetchAllPendingRedemptions(); // Fetch approvals first
+      adminProvider.fetchAllRedemptions(); // Fetch semua klaim (pending + approved + rejected)
       adminProvider.fetchAllUsers();
       adminProvider.fetchAdminRewards(); // Fetch rewards untuk catalog
     });
@@ -72,7 +73,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     AdminProvider adminProvider,
     RewardProvider rewardProvider,
   ) {
-    final pendingCount = rewardProvider.pendingRedemptions.length;
+    final pendingCount = adminProvider.pendingRedemptions.length;
     return AppBar(
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
@@ -671,17 +672,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
       );
     }
 
-    final pending = adminProvider.pendingRedemptions;
+    final all = adminProvider.allRedemptions;
+    final pendingCount = adminProvider.pendingRedemptions.length;
 
-    if (pending.isEmpty) {
+    if (all.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('✅', style: TextStyle(fontSize: 56)),
+            const Text('📋', style: TextStyle(fontSize: 56)),
             const SizedBox(height: 16),
             Text(
-              'Tidak ada klaim menunggu',
+              'Belum ada klaim reward',
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -690,7 +692,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Semua reward sudah diproses',
+              'Klaim dari user akan muncul di sini',
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -703,9 +705,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: pending.length + 1,
+      itemCount: all.length + 1,
       itemBuilder: (ctx, idx) {
-        // Header dengan stats
         if (idx == 0) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 20),
@@ -713,7 +714,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Pending Approvals',
+                  'Semua Klaim Reward',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -722,10 +723,12 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${pending.length} ${pending.length == 1 ? 'reward' : 'rewards'} menunggu persetujuan',
+                  pendingCount > 0
+                      ? '$pendingCount menunggu · ${all.length} total'
+                      : '${all.length} klaim · semua sudah diproses',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    color: AppColors.textSecondary,
+                    color: pendingCount > 0 ? Colors.orange : AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -734,13 +737,26 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
         }
         return _buildFirebaseClaimCard(
           context,
-          pending[idx - 1],
+          all[idx - 1],
           adminProvider,
           rewardProvider,
           habitProvider,
         );
       },
     );
+  }
+
+  Future<void> _launchWhatsApp(String phone, String rewardTitle) async {
+    // Normalisasi nomor: hilangkan non-digit kecuali +, pastikan awali 62
+    String normalized = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (normalized.startsWith('0')) normalized = '62${normalized.substring(1)}';
+    final message = Uri.encodeComponent(
+      'Halo $phone, reward "$rewardTitle" kamu sudah disetujui! Silakan konfirmasi untuk pengiriman. - Admin BisaProduktif',
+    );
+    final uri = Uri.parse('https://wa.me/$normalized?text=$message');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildFirebaseClaimCard(
@@ -750,13 +766,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     RewardProvider rewardProvider,
     HabitProvider habitProvider,
   ) {
-    final transactionId = redemption['id'] as String;
     final userName = redemption['userName'] as String? ?? 'Unknown';
     final userEmail = redemption['userEmail'] as String? ?? '-';
+    final userWhatsapp = redemption['userWhatsapp'] as String? ?? '';
+    final userAddress = redemption['userAddress'] as String? ?? '';
     final rewardTitle = redemption['rewardTitle'] as String? ?? 'Unknown';
     final rewardEmoji = redemption['rewardEmoji'] as String? ?? '🎁';
     final coinsCost = redemption['coinsCost'] as int? ?? 0;
     final timestamp = redemption['timestamp'] as DateTime;
+    final status = redemption['status'] as String? ?? 'pending';
 
     final dateStr =
         '${timestamp.day}/${timestamp.month}/${timestamp.year} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
@@ -834,18 +852,34 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
+                    color: status == 'approved'
+                        ? Colors.green.withValues(alpha: 0.12)
+                        : status == 'rejected'
+                            ? Colors.red.withValues(alpha: 0.12)
+                            : Colors.amber.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.3),
+                      color: status == 'approved'
+                          ? Colors.green.withValues(alpha: 0.3)
+                          : status == 'rejected'
+                              ? Colors.red.withValues(alpha: 0.3)
+                              : Colors.amber.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Text(
-                    '⏳ Pending',
+                    status == 'approved'
+                        ? '✅ Disetujui'
+                        : status == 'rejected'
+                            ? '❌ Ditolak'
+                            : '⏳ Pending',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.amber[800],
+                      color: status == 'approved'
+                          ? Colors.green[800]
+                          : status == 'rejected'
+                              ? Colors.red[800]
+                              : Colors.amber[800],
                     ),
                   ),
                 ),
@@ -908,186 +942,101 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               ),
             ),
           ),
-          // Request timestamp
+          // Request timestamp + WA info
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '📅 $dateStr',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Action buttons
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showFirebaseRejectDialog(
-                      context,
-                      transactionId,
-                      rewardTitle,
-                      adminProvider,
-                      rewardProvider,
-                      habitProvider,
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.danger, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    icon: const Icon(Icons.close, size: 18),
-                    label: Text(
-                      'Tolak',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.danger,
-                      ),
-                    ),
+                Text(
+                  '📅 $dateStr',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final success = await adminProvider.approveFirebaseRedemption(
-                        transactionId: transactionId,
-                        rewardProvider: rewardProvider,
-                        habitProvider: habitProvider,
-                      );
-                      if (!mounted) return;
-                      if (success) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '✅ Approved: $rewardTitle',
-                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                            ),
-                            backgroundColor: AppColors.primary,
-                            duration: const Duration(seconds: 2),
+                const SizedBox(height: 12),
+                // Alamat pengiriman
+                if (userAddress.isNotEmpty)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on, size: 16, color: AppColors.textSecondary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          userAddress,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
                           ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    icon: const Icon(Icons.check, size: 18),
-                    label: Text(
-                      'Setujui',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    '⚠️ Alamat belum diisi user',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.orange.shade700,
                     ),
                   ),
-                ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-
-  void _showFirebaseRejectDialog(
-    BuildContext context,
-    String transactionId,
-    String rewardTitle,
-    AdminProvider adminProvider,
-    RewardProvider rewardProvider,
-    HabitProvider habitProvider,
-  ) {
-    final reasonCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Tolak Permintaan',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Alasan penolakan:',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: reasonCtrl,
-              decoration: InputDecoration(
-                hintText: 'Contoh: Stok tidak tersedia',
-                hintStyle: GoogleFonts.poppins(fontSize: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Batal', style: GoogleFonts.poppins()),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final success = await adminProvider.rejectFirebaseRedemption(
-                transactionId: transactionId,
-                reason: reasonCtrl.text.isEmpty ? 'Tidak ada alasan' : reasonCtrl.text,
-                rewardProvider: rewardProvider,
-                habitProvider: habitProvider,
-              );
-              if (!mounted) return;
-              Navigator.pop(context);
-              if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '❌ Ditolak: $rewardTitle',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          // Tombol Hubungi WA
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: userWhatsapp.isNotEmpty
+                ? SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _launchWhatsApp(userWhatsapp, rewardTitle),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      icon: const Text('📱', style: TextStyle(fontSize: 18)),
+                      label: Text(
+                        'Hubungi via WhatsApp  $userWhatsapp',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                    backgroundColor: AppColors.danger,
-                    duration: const Duration(seconds: 2),
+                  )
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '⚠️ Nomor WA belum diisi — tidak bisa dihubungi',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-            ),
-            child: Text('Tolak', style: GoogleFonts.poppins()),
           ),
         ],
       ),
     );
   }
+
 
   // ── TAB 2: ACTIVITY & STATISTICS ────────────────────────────────────────────
 

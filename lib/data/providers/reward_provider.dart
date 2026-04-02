@@ -203,6 +203,8 @@ class RewardProvider extends ChangeNotifier {
     required HabitProvider habitProvider,
     required String userId,
     required String userName,
+    String userWhatsapp = '',
+    String userAddress = '',
   }) async {
     final trustScore = habitProvider.trustScore;
     final totalCoins = habitProvider.totalCoins;
@@ -273,7 +275,11 @@ class RewardProvider extends ChangeNotifier {
     await _box.put(tx.id, tx);
 
     // Sync redemption ke Firebase (async, tidak perlu await)
-    FirebaseService.saveRedemptionRequest(tx);
+    FirebaseService.saveRedemptionRequest(
+      tx,
+      userWhatsapp: userWhatsapp,
+      userAddress: userAddress,
+    );
 
     // Simpan last redeem timestamp
     await prefs.setString(_lastRedeemKey, DateTime.now().toIso8601String());

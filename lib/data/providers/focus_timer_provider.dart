@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/focus_session_model.dart';
+import '../../core/services/firebase_service.dart';
 
 class FocusTimerProvider extends ChangeNotifier {
   static const String _boxName = 'focus_sessions';
@@ -182,6 +183,15 @@ class FocusTimerProvider extends ChangeNotifier {
       }
 
       if (_isLoaded) _box.put(_currentSession!.id, _currentSession!);
+
+      // Log focus session ke Firebase (fire-and-forget)
+      FirebaseService.logActivity(type: 'focus_complete', data: {
+        'sessionId': _currentSession!.id,
+        'durationMinutes': (_currentSession!.durationSeconds / 60).round(),
+        'coinsEarned': reward,
+        'wasCheatDetected': _currentSession!.wasCheatDetected,
+        'hasLinkedHabit': _linkedHabitId != null,
+      });
     }
     // Expose ke FocusTimerScreen untuk dikonsumsi
     if (_linkedHabitId != null) {
@@ -310,6 +320,15 @@ class FocusTimerProvider extends ChangeNotifier {
       _lastRewardCoins = reward;
 
       if (_isLoaded) await _box.put(_currentSession!.id, _currentSession!);
+
+      // Log focus session ke Firebase (fire-and-forget)
+      FirebaseService.logActivity(type: 'focus_complete', data: {
+        'sessionId': _currentSession!.id,
+        'durationMinutes': (_currentSession!.durationSeconds / 60).round(),
+        'coinsEarned': reward,
+        'wasCheatDetected': false,
+        'hasLinkedHabit': false,
+      });
     }
 
     await _clearSessionPrefs();

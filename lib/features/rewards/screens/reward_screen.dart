@@ -54,14 +54,6 @@ class _RewardScreenState extends State<RewardScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RewardProvider>().init();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Consumer2<HabitProvider, RewardProvider>(
       builder: (context, habitProvider, rewardProvider, _) {
@@ -576,12 +568,13 @@ class _RewardScreenState extends State<RewardScreen> {
                             Navigator.pop(context);
                             final profileProvider =
                                 context.read<UserProfileProvider>();
-                            if (profileProvider.whatsapp.isEmpty) {
-                              // WA belum diisi — minta user isi dulu
-                              // sebelum koin dipotong
+                            if (profileProvider.whatsapp.isEmpty ||
+                                profileProvider.address.isEmpty) {
+                              // WA atau alamat belum lengkap — minta isi dulu
                               await _showWaRequiredSheet(
                                   reward, habitProvider, rewardProvider);
                             } else {
+                              // Data sudah lengkap — langsung redeem
                               await _processRedeem(
                                   reward, habitProvider, rewardProvider);
                             }
@@ -753,8 +746,10 @@ class _RewardScreenState extends State<RewardScreen> {
                             return;
                           }
                           setSheet(() => saving = true);
-                          await profileProvider.updateWhatsapp(rawWa);
-                          await profileProvider.updateAddress(addressInput.trim());
+                          await profileProvider.updateContactInfo(
+                            whatsapp: rawWa,
+                            address: addressInput.trim(),
+                          );
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (mounted) {
                             await _processRedeem(reward, habitProvider, rewardProvider);

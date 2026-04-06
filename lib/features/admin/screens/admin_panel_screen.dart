@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/services/firebase_service.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/reward_provider.dart';
 import '../../../data/providers/habit_provider.dart';
@@ -293,6 +294,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
     final totalCoins = user['totalCoins'] as int? ?? 0;
     final trustScore = user['trustScore'] as int? ?? 70;
     final name = user['name'] as String? ?? 'Unknown';
+    final email = user['email'] as String? ?? '';
     final whatsapp = user['whatsapp'] as String? ?? '-';
     final locationMap = user['location'] as Map<String, dynamic>? ?? {};
     final displayAddress = locationMap['displayAddress'] as String? ?? '';
@@ -348,15 +350,30 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        name,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (email.isNotEmpty)
+                            Text(
+                              email,
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -1032,6 +1049,72 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                     ),
                   ),
           ),
+          // Tombol Hapus Klaim
+          if (status != 'pending')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        title: Text(
+                          'Hapus Data Klaim?',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+                        ),
+                        content: Text(
+                          'Data klaim reward "$rewardTitle" dari $userName akan dihapus permanen dari sistem.\n\nTindakan ini tidak bisa dibatalkan.',
+                          style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: Text('Batal', style: GoogleFonts.poppins()),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Text('Hapus', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && context.mounted) {
+                      final id = redemption['id'] as String? ?? '';
+                      final ok = await adminProvider.deleteRedemption(id);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ok ? 'Data klaim berhasil dihapus' : 'Gagal menghapus data klaim',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            backgroundColor: ok ? AppColors.primary : Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: Text(
+                    'Hapus Data Klaim',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1657,8 +1740,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                         children: [
                           _buildInfoRow('📱 WhatsApp', user['whatsapp'] as String? ?? '-'),
                           const SizedBox(height: 8),
+                          _buildInfoRow('📦 Alamat Pengiriman', user['address'] as String? ?? '-'),
+                          const SizedBox(height: 8),
                           _buildInfoRow(
-                            '📍 Lokasi',
+                            '📍 Lokasi GPS',
                             () {
                               final loc = user['location'] as Map<String, dynamic>? ?? {};
                               final addr = loc['displayAddress'] as String? ?? '';
@@ -1751,6 +1836,110 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                           ],
                         ),
                       ),
+                    const SizedBox(height: 24),
+                    // Activity Log
+                    Text(
+                      'Aktivitas Terkini',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: FirebaseService.getUserActivityLog(
+                          user['uid'] as String,
+                          limit: 20),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                              child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ));
+                        }
+                        final logs = snapshot.data ?? [];
+                        if (logs.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text('Belum ada aktivitas tercatat',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary)),
+                          );
+                        }
+                        return Column(
+                          children: logs.map((log) {
+                            final type = log['type'] as String? ?? '';
+                            final data = log['data'] as Map<String, dynamic>? ?? {};
+                            final ts = log['timestamp'];
+                            String tsStr = '-';
+                            if (ts != null) {
+                              try {
+                                final dt = (ts as dynamic).toDate() as DateTime;
+                                tsStr =
+                                    '${dt.day}/${dt.month} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                              } catch (_) {}
+                            }
+                            final (icon, label, color) = switch (type) {
+                              'habit_complete' => (
+                                  '✅',
+                                  'Habit: ${data['habitTitle'] ?? '-'} (+${data['coinsEarned'] ?? 0} koin)',
+                                  Colors.green,
+                                ),
+                              'fraud_detected' => (
+                                  '⚠️',
+                                  'Fraud: ${data['reason'] ?? '-'} (-${data['penalty'] ?? 0} trust)',
+                                  AppColors.danger,
+                                ),
+                              'redeem_reward' => (
+                                  '🎁',
+                                  'Redeem: ${data['rewardName'] ?? '-'} (-${data['coinsSpent'] ?? 0} koin)',
+                                  AppColors.coinGoldDark,
+                                ),
+                              _ => ('📌', type, AppColors.textSecondary),
+                            };
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: Colors.grey.withValues(alpha: 0.12)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(icon,
+                                      style: const TextStyle(fontSize: 16)),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      label,
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: color,
+                                          fontWeight: FontWeight.w500),
+                                      maxLines: 2,
+                                    ),
+                                  ),
+                                  Text(tsStr,
+                                      style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          color: AppColors.textSecondary)),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 24),
                     // Admin Actions
                     Text(
@@ -2172,7 +2361,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
           ],
         ),
       ),
-    );
+    ).then((_) => reasonCtrl.dispose());
   }
 
   Widget _buildPresetChip(

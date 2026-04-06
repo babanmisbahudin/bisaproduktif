@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/content_validator.dart';
+import '../../core/services/firebase_service.dart';
 import '../models/habit_model.dart';
 
 class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
@@ -311,6 +312,18 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _saveTrustScore();
     }
 
+    // Sync ke Firebase (fire-and-forget, tidak block UI)
+    FirebaseService.syncCoins(_totalCoins);
+    FirebaseService.syncTrustScore(_trustScore);
+    FirebaseService.logActivity(type: 'habit_complete', data: {
+      'habitId': habit.id,
+      'habitTitle': habit.title,
+      'coinsEarned': earnedCoins,
+      'streak': habit.streak,
+      'totalCoins': _totalCoins,
+      'trustScore': _trustScore,
+    });
+
     _loadHabits();
     notifyListeners();
     return true;
@@ -320,8 +333,18 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void _applyTrustPenalty(int penalty, String reason) {
     _trustScore = (_trustScore - penalty).clamp(0, 100);
-    _saveTrustScore();
+    _saveTrustScore(); // intentionally fire-and-forget in sync context
     debugPrint('[Anti-Fraud] Trust score -$penalty: $reason (score: $_trustScore)');
+
+    // Log fraud event ke Firebase agar admin bisa lihat
+    FirebaseService.syncTrustScore(_trustScore);
+    FirebaseService.logActivity(type: 'fraud_detected', data: {
+      'penalty': penalty,
+      'reason': reason,
+      'trustScoreAfter': _trustScore,
+      'totalCoins': _totalCoins,
+    });
+
     notifyListeners();
   }
 
@@ -344,6 +367,7 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_totalCoins < amount) return false;
     _totalCoins -= amount;
     await _saveCoins();
+    FirebaseService.syncCoins(_totalCoins);
     notifyListeners();
     return true;
   }
@@ -352,6 +376,7 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> addCoins(int amount) async {
     _totalCoins += amount;
     await _saveCoins();
+    FirebaseService.syncCoins(_totalCoins);
     notifyListeners();
     return true;
   }

@@ -65,7 +65,26 @@ class UserProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update nomor WhatsApp, simpan lokal + sync kontak ke Firebase.
+  /// Update WA + alamat bersamaan — satu Firebase call, tidak ada race condition.
+  Future<void> updateContactInfo({
+    required String whatsapp,
+    required String address,
+  }) async {
+    _whatsapp = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
+    _address = address.trim();
+    final prefs = await _getPrefs();
+    await Future.wait([
+      prefs.setString(_keyWhatsapp, _whatsapp),
+      prefs.setString(_keyAddress, _address),
+    ]);
+    notifyListeners();
+    await FirebaseService.saveUserContactInfo(
+      whatsapp: _whatsapp,
+      address: _address,
+    );
+  }
+
+  /// Update nomor WhatsApp saja (untuk backward compat).
   Future<void> updateWhatsapp(String whatsapp) async {
     _whatsapp = whatsapp.replaceAll(RegExp(r'[^\d+]'), '');
     final prefs = await _getPrefs();
@@ -77,7 +96,7 @@ class UserProfileProvider extends ChangeNotifier {
     );
   }
 
-  /// Update alamat, simpan lokal + sync kontak ke Firebase.
+  /// Update alamat saja (untuk backward compat).
   Future<void> updateAddress(String address) async {
     _address = address.trim();
     final prefs = await _getPrefs();
@@ -101,10 +120,7 @@ class UserProfileProvider extends ChangeNotifier {
       await prefs.setString(_keyName, _name);
     }
 
-    if (_address.isEmpty) {
-      _address = googleEmail;
-      await prefs.setString(_keyAddress, _address);
-    }
+    // Jangan set alamat ke email — biarkan kosong sampai user isi manual
 
     notifyListeners();
   }

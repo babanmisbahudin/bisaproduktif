@@ -16,6 +16,7 @@ import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/goal_provider.dart';
 import '../../../data/providers/memo_provider.dart';
 import '../../../data/providers/focus_timer_provider.dart';
+import '../../../data/providers/reward_provider.dart';
 import '../../admin/screens/admin_panel_screen.dart';
 import '../../notifications/screens/notification_settings_screen.dart';
 
@@ -263,6 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   final goalProvider = context.read<GoalProvider>();
                   final memoProvider = context.read<MemoProvider>();
                   final focusProvider = context.read<FocusTimerProvider>();
+                  final rewardProvider = context.read<RewardProvider>();
 
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -329,6 +331,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     await goalProvider.clearUserData();
                     await memoProvider.clearUserData();
                     await focusProvider.clearUserData();
+                    await rewardProvider.clearUserData();
 
                     // Clear onboarding flag to show login screen
                     final prefs = await SharedPreferences.getInstance();
@@ -953,8 +956,10 @@ class _WhatsappEditSheetState extends State<_WhatsappEditSheet> {
                         return;
                       }
                       setState(() => _saving = true);
-                      await widget.profileProvider.updateWhatsapp(rawWa);
-                      await widget.profileProvider.updateAddress(rawAddr);
+                      await widget.profileProvider.updateContactInfo(
+                        whatsapp: rawWa,
+                        address: rawAddr,
+                      );
                       if (mounted) Navigator.pop(context);
                       if (widget.parentContext.mounted) {
                         ScaffoldMessenger.of(widget.parentContext).showSnackBar(

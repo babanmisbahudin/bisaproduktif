@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
-import '../../../core/utils/app_transition.dart';
 import '../../../core/widgets/responsive_layout_widget.dart';
 import '../../../core/widgets/dynamic_scene_painter.dart';
 import '../../../core/services/weather_service.dart' as weather;
@@ -16,8 +15,8 @@ import '../../../data/models/habit_model.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/goal_provider.dart';
 import '../../habits/screens/add_habit_screen.dart';
-import '../../goals/screens/add_goal_screen.dart';
 import '../../focus/screens/focus_timer_screen.dart';
+import '../../focus/widgets/focus_tab.dart';
 import '../../goals/widgets/goals_tab.dart';
 import '../../../data/providers/notification_provider.dart';
 import '../../../data/providers/memo_provider.dart';
@@ -37,8 +36,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _userName = '';
   int _selectedTab = 0;
   weather.WeatherData? _weatherData;
-  bool _isRefreshing = false;
   bool _waReminderShown = false;
+
+  // Sheet state — menggantikan DraggableScrollableController yg sering bug
+  double _sheetFraction = 0.47;
+  bool _sheetDragging = false;
+  late final PageController _pageCtrl = PageController();
 
   late AnimationController _handlePulseCtrl;
   late Animation<double> _handlePulseAnim;
@@ -92,12 +95,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
-  void _checkAndShowWaReminder() {
+  Future<void> _checkAndShowWaReminder() async {
     if (!mounted || _waReminderShown) return;
     final authProvider = context.read<auth_prov.AuthProvider>();
     if (!authProvider.isLoggedIn) return;
     final profileProvider = context.read<UserProfileProvider>();
     if (profileProvider.whatsapp.isNotEmpty && profileProvider.address.isNotEmpty) return;
+
+    // Cek flag "jangan tampilkan lagi" dari SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('wa_reminder_dismissed') == true) return;
+    if (!mounted) return;
 
     _waReminderShown = true;
     showDialog(
@@ -184,6 +192,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('wa_reminder_dismissed', true);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: Text(
+                    'Jangan tampilkan lagi',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -216,16 +241,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (mounted) setState(() => _weatherData = w);
   }
 
-  Future<void> _handleRefresh() async {
-    setState(() => _isRefreshing = true);
-    await _fetchWeather();
-    if (mounted) setState(() => _isRefreshing = false);
-  }
 
 
   @override
   void dispose() {
     _handlePulseCtrl.dispose();
+    _pageCtrl.dispose();
     super.dispose();
   }
 
@@ -283,16 +304,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildCoinDisplay(habitProvider.totalCoins),
                     ),
 
-                    // ── 4. Draggable bottom sheet ────────────────────────────
-                    DraggableScrollableSheet(
-                      initialChildSize: 0.50,
-                      minChildSize: 0.28,
-                      maxChildSize: 0.78,
-                      snap: true,
-                      snapSizes: const [0.28, 0.50, 0.78],
-                      builder: (ctx, sc) {
-                        return _buildSheet(habitProvider, sc);
-                      },
+                    // ── 4. Custom bottom sheet (AnimatedContainer) ──────────
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: AnimatedContainer(
+                        duration: _sheetDragging
+                            ? Duration.zero
+                            : const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        height: mq.size.height * _sheetFraction,
+                        child: _buildSheet(habitProvider),
+                      ),
                     ),
                   ],
                 ),
@@ -556,7 +580,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Bottom sheet ──────────────────────────────────────────────────────────
-  Widget _buildSheet(HabitProvider provider, ScrollController sc) {
+  Widget _buildSheet(HabitProvider provider) {
     return Builder(
       builder: (context) => Container(
         decoration: BoxDecoration(
@@ -575,16 +599,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         child: Column(
           children: [
-            // Drag handle area — large touch target for drag
+            // Drag handle area — tap toggle + drag naik/turun sheet
             GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () {
-                // Tap handle to expand/collapse sheet
-                sc.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                );
+                // Cycle: collapsed → max → half → collapsed
+                setState(() {
+                  if (_sheetFraction <= 0.35) {
+                    _sheetFraction = 0.75;
+                  } else if (_sheetFraction >= 0.65) {
+                    _sheetFraction = 0.47;
+                  } else {
+                    _sheetFraction = 0.28;
+                  }
+                });
+              },
+              onVerticalDragStart: (_) {
+                setState(() => _sheetDragging = true);
+              },
+              onVerticalDragUpdate: (d) {
+                final screenH = MediaQuery.of(context).size.height;
+                final delta = -(d.primaryDelta ?? 0) / screenH;
+                setState(() {
+                  _sheetFraction = (_sheetFraction + delta).clamp(0.28, 0.75);
+                });
+              },
+              onVerticalDragEnd: (d) {
+                final velocity = d.primaryVelocity ?? 0;
+                const snaps = [0.28, 0.47, 0.75];
+                double target;
+                if (velocity < -600) {
+                  target = 0.75; // swipe up cepat → max
+                } else if (velocity > 600) {
+                  target = 0.28; // swipe down cepat → collapse
+                } else {
+                  target = snaps.reduce((a, b) =>
+                    (_sheetFraction - a).abs() < (_sheetFraction - b).abs() ? a : b);
+                }
+                setState(() {
+                  _sheetDragging = false;
+                  _sheetFraction = target;
+                });
               },
               child: Padding(
                 padding: EdgeInsets.symmetric(
@@ -619,91 +674,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
 
-            // "Today" + add button
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.padding(22),
-                context.padding(14),
-                context.padding(22),
-                0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Hari ini',
-                    style: GoogleFonts.poppins(
-                      fontSize: context.fontSize(26),
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      // Tombol refresh
-                      GestureDetector(
-                        onTap: _isRefreshing ? null : _handleRefresh,
-                        child: Container(
-                          width: context.iconSize(46),
-                          height: context.iconSize(46),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius:
-                                BorderRadius.circular(context.radius(15)),
-                          ),
-                          child: Center(
-                            child: _isRefreshing
-                                ? SizedBox(
-                                    width: context.iconSize(20),
-                                    height: context.iconSize(20),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppColors.primary,
-                                      ),
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.refresh_rounded,
-                                    color: AppColors.primary,
-                                    size: context.iconSize(22),
-                                  ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: context.padding(10)),
-                      // Tombol add
-                      GestureDetector(
-                        onTap: _selectedTab == 0 ? _openAddHabit : _openAddGoal,
-                        child: Container(
-                          width: context.iconSize(46),
-                          height: context.iconSize(46),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius:
-                                BorderRadius.circular(context.radius(15)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.38),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.add_rounded,
-                            color: Colors.white,
-                            size: context.iconSize(24),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
             // Tab switcher
             Padding(
               padding: EdgeInsets.fromLTRB(
@@ -717,7 +687,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
             // Content
             Expanded(
-              child: _buildTabContent(provider, sc),
+              child: _buildTabContent(provider),
             ),
           ],
         ),
@@ -735,7 +705,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           SizedBox(width: context.padding(8)),
           _tabPill('Goals', 1, context),
           SizedBox(width: context.padding(8)),
-          _tabPill('Memo', 2, context),
+          _tabPill('Fokus', 2, context),
+          SizedBox(width: context.padding(8)),
+          _tabPill('Memo', 3, context),
         ],
       ),
     );
@@ -744,7 +716,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _tabPill(String label, int index, BuildContext context) {
     final isSelected = _selectedTab == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
+      onTap: () {
+        setState(() {
+          _selectedTab = index;
+          _sheetFraction = 0.75; // expand ke max, tidak ada controller conflict
+        });
+        _pageCtrl.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      },
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -779,321 +761,73 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Tab Content ───────────────────────────────────────────────────────────
-  Widget _buildTabContent(HabitProvider habitProvider, ScrollController sc) {
-    return switch (_selectedTab) {
-      0 => // Daily habits
-        (habitProvider.isLoaded
+  Widget _buildTabContent(HabitProvider habitProvider) {
+    return PageView(
+      controller: _pageCtrl,
+      physics: const ClampingScrollPhysics(),
+      onPageChanged: (index) {
+        setState(() {
+          _selectedTab = index;
+          if (_sheetFraction < 0.70) _sheetFraction = 0.75; // expand jika belum max
+        });
+      },
+      children: [
+        // ── Page 0: Daily habits ─────────────────────────────────────────
+        habitProvider.isLoaded
             ? ListView(
-                controller: sc,
                 padding: const EdgeInsets.fromLTRB(22, 12, 22, 90),
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: _buildHabitCards(habitProvider),
+                children: [
+                  ..._buildHabitCards(habitProvider),
+                  if (habitProvider.habits.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _addHabitButton(context),
+                  ],
+                ],
               )
-            : const Center(child: CircularProgressIndicator())),
-      1 => // Goals
+            : const Center(child: CircularProgressIndicator()),
+
+        // ── Page 1: Goals ────────────────────────────────────────────────
         GoalsTab(
           onCoinEarned: () => setState(() {}),
-          scrollController: sc,
         ),
-      2 => // Memo
-        Consumer<MemoProvider>(
-            builder: (_, memoProvider, _) {
-              final memos = memoProvider.memos;
-              final memoInputCtrl = TextEditingController();
 
-              final memoItems = [
-              // Input field untuk memo baru (item 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tulis Memo',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFF2A2A2A)
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: TextField(
-                              controller: memoInputCtrl,
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : AppColors.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Ketik memo...',
-                                hintStyle: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                              ),
-                              maxLines: 1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () async {
-                            final text = memoInputCtrl.text.trim();
-                            if (text.isEmpty) {
-                              _snack('Tulis memo terlebih dahulu');
-                              return;
-                            }
-                            await memoProvider.addMemo(content: text);
-                            memoInputCtrl.clear();
-                            _snack('Memo ditambahkan ✓');
-                          },
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Daftar memo items
-              if (memos.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 48),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('📝', style: TextStyle(fontSize: 48)),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Belum ada memo',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ...memos.map((memo) {
-                  return GestureDetector(
-                    onTap: () => _showEditMemoModal(context, memo),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 22),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF2A2A2A)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  memo.content.length > 40
-                                      ? '${memo.content.substring(0, 40)}...'
-                                      : memo.content,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white
-                                        : AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () async {
-                                  await memoProvider.deleteMemo(memo.id);
-                                  if (mounted) {
-                                    _snack('Memo dihapus');
-                                  }
-                                },
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  size: 14,
-                                  color: AppColors.danger,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _formatMemoDate(memo.updatedAt),
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              const SizedBox(height: 80), // spacer untuk bottom nav
-            ];
+        // ── Page 2: Fokus ────────────────────────────────────────────────
+        const FocusTab(),
 
-              return ListView(
-                controller: sc,
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: memoItems,
-              );
-            },
-          ),
-      _ => const SizedBox.shrink(),
-    };
+        // ── Page 3: Memo ─────────────────────────────────────────────────
+        _MemoPage(onSnack: _snack),
+      ],
+    );
   }
 
 
-  String _formatMemoDate(DateTime date) {
-    final now = DateTime.now();
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-    }
-    return '${date.day}/${date.month}/${date.year}';
-  }
 
-  void _showEditMemoModal(BuildContext context, dynamic memo) {
-    final textCtrl = TextEditingController(text: memo.content);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+
+  // ── Habit cards ───────────────────────────────────────────────────────────
+  Widget _addHabitButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _openAddHabit,
+        icon: const Icon(Icons.add, size: 18),
+        label: Text(
+          'Tambah Habit',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Edit Memo',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: textCtrl,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Tulis memo...',
-                  hintStyle: GoogleFonts.poppins(fontSize: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Batal',
-                      style: GoogleFonts.poppins(color: AppColors.textSecondary),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      final memoProvider = context.read<MemoProvider>();
-                      if (textCtrl.text.isNotEmpty) {
-                        memoProvider.updateMemo(
-                          memoId: memo.id,
-                          content: textCtrl.text,
-                        );
-                        Navigator.pop(context);
-                        _snack('Memo diperbarui');
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text(
-                      'Simpan',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(vertical: context.padding(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(context.radius(14)),
           ),
+          elevation: 0,
         ),
       ),
     );
   }
 
-
-  // ── Habit cards ───────────────────────────────────────────────────────────
   List<Widget> _buildHabitCards(HabitProvider provider) {
     // Only show habits not yet completed today
     final pending = provider.habits
@@ -1159,29 +893,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _emptyState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      child: Column(
-        children: [
-          const Text('🌱', style: TextStyle(fontSize: 52)),
-          const SizedBox(height: 14),
-          Text(
-            'Belum ada habit',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.self_improvement_rounded,
+                  size: 40, color: AppColors.primary),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Tap + untuk tambah habit pertamamu',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: AppColors.textSecondary,
+            const SizedBox(height: 16),
+            Text(
+              'Belum ada habit',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Buat habit harian dan selesaikan untuk mendapatkan koin!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _openAddHabit,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('Tambah Habit',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1878,7 +1632,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _showWeatherApiDialog() {
     final keyCtrl = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -2052,7 +1806,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
-    );
+    ).then((_) => keyCtrl.dispose());
   }
 
   // ── Open screens ──────────────────────────────────────────────────────────
@@ -2090,13 +1844,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openAddGoal() {
-    Navigator.push(
-      context,
-      AppTransition.slideRight(child: const AddGoalScreen()),
-    );
-  }
-
   // ── Snackbars ─────────────────────────────────────────────────────────────
   void _showCoin(int coins, HabitProvider provider) {
     final allDone = provider.habits.isNotEmpty &&
@@ -2122,6 +1869,342 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+// ── Memo Page ─────────────────────────────────────────────────────────────────
+class _MemoPage extends StatefulWidget {
+  final void Function(String msg, {Color? color}) onSnack;
+  const _MemoPage({required this.onSnack});
+
+  @override
+  State<_MemoPage> createState() => _MemoPageState();
+}
+
+class _MemoPageState extends State<_MemoPage> {
+  final TextEditingController _inputCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _inputCtrl.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+      return 'Hari ini ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  void _showEditModal(dynamic memo, MemoProvider memoProvider) {
+    final textCtrl = TextEditingController(text: memo.content);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF1E1E1E)
+                : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Edit Memo',
+                  style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textCtrl,
+                autofocus: true,
+                minLines: 4,
+                maxLines: 10,
+                style: GoogleFonts.poppins(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Tulis apapun yang kamu mau...',
+                  hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF2A2A2A)
+                      : const Color(0xFFF6F6F6),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(14),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Batal', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (textCtrl.text.trim().isNotEmpty) {
+                          memoProvider.updateMemo(memoId: memo.id, content: textCtrl.text.trim());
+                          Navigator.pop(context);
+                          widget.onSnack('Memo diperbarui ✓');
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Simpan', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) => textCtrl.dispose());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Consumer<MemoProvider>(
+      builder: (_, memoProvider, _) {
+        final memos = memoProvider.memos;
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+          children: [
+            // ── Banner deskripsi ───────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                children: [
+                  const Text('📌', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Kamu bisa simpan apapun di sini. Jika kamu pelupa, ini tempat yang tepat!',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.primary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Textarea input ─────────────────────────────────────────────
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _inputCtrl,
+                minLines: 4,
+                maxLines: 8,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Tulis catatan, ide, atau pengingat...',
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // ── Tombol simpan ──────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final text = _inputCtrl.text.trim();
+                  if (text.isEmpty) {
+                    widget.onSnack('Tulis memo terlebih dahulu');
+                    return;
+                  }
+                  await memoProvider.addMemo(content: text);
+                  _inputCtrl.clear();
+                  widget.onSnack('Memo disimpan ✓');
+                },
+                icon: const Icon(Icons.save_rounded, size: 18),
+                label: Text('Simpan Memo',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+
+            // ── Daftar memo ────────────────────────────────────────────────
+            if (memos.isEmpty) ...[
+              const SizedBox(height: 40),
+              Center(
+                child: Column(
+                  children: [
+                    const Text('🗒️', style: TextStyle(fontSize: 44)),
+                    const SizedBox(height: 10),
+                    Text('Belum ada catatan tersimpan',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        )),
+                    const SizedBox(height: 6),
+                    Text('Mulai tulis sesuatu di atas',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        )),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 20),
+              Text(
+                '${memos.length} catatan tersimpan',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...memos.map((memo) => _memoCard(memo, memoProvider, isDark)),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _memoCard(dynamic memo, MemoProvider memoProvider, bool isDark) {
+    return GestureDetector(
+      onTap: () => _showEditModal(memo, memoProvider),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    memo.content,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: isDark ? Colors.white : AppColors.textPrimary,
+                      height: 1.55,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () async {
+                    await memoProvider.deleteMemo(memo.id);
+                    widget.onSnack('Memo dihapus');
+                  },
+                  child: const Icon(Icons.delete_outline_rounded,
+                      size: 18, color: AppColors.danger),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.access_time_rounded,
+                    size: 11, color: AppColors.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  _formatDate(memo.updatedAt),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Tap untuk edit',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: AppColors.primary.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

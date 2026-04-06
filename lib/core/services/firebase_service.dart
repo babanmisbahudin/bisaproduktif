@@ -24,12 +24,19 @@ class FirebaseService {
     required int trustScore,
   }) async {
     if (!isLoggedIn) return;
-    await _db.collection('users').doc(userId).set({
-      'name': name,
-      'totalCoins': totalCoins,
-      'trustScore': trustScore,
-      'lastSync': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      await _db.collection('users').doc(userId).set({
+        'uid': userId,
+        'email': currentUser?.email ?? '',
+        'name': name,
+        'totalCoins': totalCoins,
+        'trustScore': trustScore,
+        'isActive': true,
+        'lastSync': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[Firebase] Error saving user profile: $e');
+    }
   }
 
   /// Simpan nomor WhatsApp user ke Firestore.
@@ -78,6 +85,19 @@ class FirebaseService {
       }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('[Firebase] Error: $e');
+    }
+  }
+
+  /// Update trust score di Firestore.
+  static Future<void> syncTrustScore(int trustScore) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('users').doc(userId).set({
+        'trustScore': trustScore,
+        'lastSync': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('[Firebase] Error syncing trust score: $e');
     }
   }
 
@@ -130,6 +150,32 @@ class FirebaseService {
     }
   }
 
+  /// Ambil activity log user (untuk admin dashboard).
+  static Future<List<Map<String, dynamic>>> getUserActivityLog(String uid, {int limit = 50}) async {
+    if (!isLoggedIn) return [];
+    try {
+      final snapshot = await _db
+          .collection('users')
+          .doc(uid)
+          .collection('activity_log')
+          .orderBy('timestamp', descending: true)
+          .limit(limit)
+          .get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'type': data['type'] ?? '',
+          'timestamp': data['timestamp'],
+          'data': data['data'] as Map<String, dynamic>? ?? {},
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint('[Firebase] Error fetching activity log: $e');
+      return [];
+    }
+  }
+
   // ── Fetch User Data ─────────────────────────────────────────────────────
 
   /// Ambil data user dari Firestore. Returns null jika belum login/error.
@@ -151,20 +197,20 @@ class FirebaseService {
   static Future<List<Map<String, dynamic>>> getAllUsers() async {
     if (!isLoggedIn) return [];
     try {
-      final snapshot = await _db
-          .collection('users')
-          .where('isActive', isNotEqualTo: false)
-          .get();
+      final snapshot = await _db.collection('users').get();
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return {
           'uid': doc.id,
+          'email': data['email'] ?? '',
           'name': data['name'] ?? 'Unknown',
-          'totalCoins': data['totalCoins'] ?? 0,
-          'trustScore': data['trustScore'] ?? 70,
+          'totalCoins': data['totalCoins'] as int? ?? 0,
+          'trustScore': data['trustScore'] as int? ?? 70,
           'whatsapp': data['whatsapp'] ?? '-',
+          'address': data['address'] ?? '-',
           'lastSync': data['lastSync'],
           'isBlocked': data['isBlocked'] ?? false,
+          'isActive': data['isActive'] ?? true,
           'location': data['location'] as Map<String, dynamic>? ?? {},
           'locationUpdatedAt': data['locationUpdatedAt'],
         };
@@ -274,6 +320,17 @@ class FirebaseService {
       'approvedBy': data['approvedBy'] as String? ?? '',
       'rejectionReason': data['rejectionReason'] as String? ?? '',
     };
+  }
+
+  /// Hapus redemption dari Firestore (admin only)
+  static Future<void> deleteRedemption(String redemptionId) async {
+    if (!isLoggedIn) return;
+    try {
+      await _db.collection('redemptions').doc(redemptionId).delete();
+    } catch (e) {
+      debugPrint('[Firebase] Error deleting redemption: $e');
+      rethrow;
+    }
   }
 
   /// Update status redemption (approve/reject) di Firestore
@@ -411,16 +468,11 @@ class FirebaseService {
 
   // ── ADMIN USER MANAGEMENT ────────────────────────────────────────────────
 
-  /// Hapus user dari Firestore (admin only)
+  /// Hapus user dari Firestore (admin only) — hard delete
   static Future<void> deleteUser(String uid) async {
     if (!isLoggedIn) return;
     try {
-      // Soft delete - set isActive=false untuk preserve audit trail
-      await _db.collection('users').doc(uid).update({
-        'isActive': false,
-        'deletedAt': FieldValue.serverTimestamp(),
-        'deletedBy': userId,
-      });
+      await _db.collection('users').doc(uid).delete();
     } catch (e) {
       debugPrint('[Firebase] Error: $e');
     }

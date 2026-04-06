@@ -127,16 +127,14 @@ class RewardProvider extends ChangeNotifier {
         _isCatalogLoaded = true;
         notifyListeners();
       }, onError: (error) {
-        // Jika error, gunakan hardcoded catalog
         debugPrint('[RewardProvider] Firestore error: $error');
-        _dynamicCatalog = List.from(catalog);
+        _dynamicCatalog = [];
         _isCatalogLoaded = true;
         notifyListeners();
       });
     } catch (e) {
-      // Jika exception, gunakan hardcoded catalog
       debugPrint('[RewardProvider] Error subscribing to rewards: $e');
-      _dynamicCatalog = List.from(catalog);
+      _dynamicCatalog = [];
       _isCatalogLoaded = true;
       notifyListeners();
     }
@@ -144,56 +142,9 @@ class RewardProvider extends ChangeNotifier {
 
   // ── Catalog ───────────────────────────────────────────────────────────────
 
-  static const List<RewardItem> catalog = [
-    // ── Kopi ──────────────────────────────────────────────────────────────────
-    RewardItem(
-      id: 'kopi1',
-      emoji: '☕',
-      title: 'Kopi Premium',
-      description: 'Kopi premium arabika pilihan. Sempurna untuk menemani hari produktifmu!',
-      price: 20000,
-      category: 'makanan',
-      color: Color(0xFF6F4E37),
-    ),
-
-    // ── Kaos ───────────────────────────────────────────────────────────────────
-    RewardItem(
-      id: 'kaos1',
-      emoji: '👕',
-      title: 'Kaos BisaProduktif',
-      description: 'Kaos eksklusif branded BisaProduktif premium quality. Banggakan prestasimu!',
-      price: 80000,
-      category: 'premium',
-      color: Color(0xFF4A7C59),
-    ),
-
-    // ── Buku Self Improvement ─────────────────────────────────────────────────
-    RewardItem(
-      id: 'buku1',
-      emoji: '📖',
-      title: 'Buku Self Improvement',
-      description: 'Koleksi buku pengembangan diri terbaik. Investasi terbaik untuk masa depanmu!',
-      price: 50000,
-      category: 'voucher',
-      color: Color(0xFF1565C0),
-    ),
-
-    // ── Al Quran ───────────────────────────────────────────────────────────────
-    RewardItem(
-      id: 'quran1',
-      emoji: '📕',
-      title: 'Al Quran Premium',
-      description: 'Al Quran edisi premium dengan terjemahan dan tajwid berwarna. Berkah untuk jiwa.',
-      price: 100000,
-      category: 'premium',
-      color: Color(0xFF2E7D32),
-    ),
-  ];
-
   List<RewardItem> filteredCatalog(String category) {
-    final source = _isCatalogLoaded ? _dynamicCatalog : catalog;
-    if (category == 'semua') return source;
-    return source.where((r) => r.category == category).toList();
+    if (category == 'semua') return _dynamicCatalog;
+    return _dynamicCatalog.where((r) => r.category == category).toList();
   }
 
   // ── Redeem ────────────────────────────────────────────────────────────────
@@ -381,6 +332,18 @@ class RewardProvider extends ChangeNotifier {
       _transactions.take(10).toList();
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  /// Hapus semua data lokal saat user logout
+  Future<void> clearUserData() async {
+    _rewardsSub?.cancel();
+    _rewardsSub = null;
+    _transactions.clear();
+    if (_isLoaded) await _box.clear();
+    _dynamicCatalog = [];
+    _isCatalogLoaded = false;
+    _isLoaded = false;
+    notifyListeners();
+  }
 
   @override
   void dispose() {

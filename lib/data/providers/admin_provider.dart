@@ -513,6 +513,21 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  /// Hapus data klaim reward dari Firebase (admin only)
+  Future<bool> deleteRedemption(String redemptionId) async {
+    if (!_isAdmin) return false;
+    try {
+      await FirebaseService.deleteRedemption(redemptionId);
+      _allRedemptions.removeWhere((r) => r['id'] == redemptionId);
+      _pendingRedemptions.removeWhere((r) => r['id'] == redemptionId);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error deleting redemption: $e');
+      return false;
+    }
+  }
+
   /// Reset/hapus semua reward points (coins) user
   Future<bool> resetUserCoins(String uid) async {
     try {

@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/goal_model.dart';
 import '../models/habit_model.dart';
+import '../../core/services/firebase_service.dart';
 
 class GoalProvider extends ChangeNotifier {
   static const String _boxName = 'goals';
@@ -126,6 +127,14 @@ class GoalProvider extends ChangeNotifier {
       if (habitProvider != null && progress > 0) {
         final bonusCoins = (goal.coins * progress).round().clamp(10, goal.coins);
         await habitProvider.addCoins(bonusCoins);
+        // Log goal complete ke Firebase untuk admin tracking
+        FirebaseService.logActivity(type: 'goal_complete', data: {
+          'goalId': goal.id,
+          'goalTitle': goal.title,
+          'progressPercent': (progress * 100).round(),
+          'bonusCoins': bonusCoins,
+          'linkedHabitCount': goal.linkedHabitIds.length,
+        });
       }
     }
 

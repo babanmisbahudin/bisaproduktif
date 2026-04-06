@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -11,6 +12,7 @@ import 'habit_provider.dart';
 class AuthProvider extends ChangeNotifier {
   late final FirebaseAuth _auth;
   late final GoogleSignIn _googleSignIn;
+  StreamSubscription<User?>? _authSub;
 
   User? _user;
   bool _isLoading = false;
@@ -31,7 +33,7 @@ class AuthProvider extends ChangeNotifier {
       _auth = FirebaseAuth.instance;
       _googleSignIn = GoogleSignIn();
       _user = _auth.currentUser;
-      _auth.authStateChanges().listen((user) {
+      _authSub = _auth.authStateChanges().listen((user) {
         _user = user;
         notifyListeners();
       });
@@ -119,6 +121,12 @@ class AuthProvider extends ChangeNotifier {
 
     // Trigger navigation callback setelah logout selesai
     onLogoutNavigate?.call();
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   /// Setelah signInWithGoogle() berhasil, panggil method ini untuk setup admin & auto-populate profile

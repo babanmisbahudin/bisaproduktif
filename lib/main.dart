@@ -40,13 +40,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Init Notification Service
-  await NotificationService().init();
-
-  // Init Google Mobile Ads (AdMob)
-  await MobileAds.instance.initialize();
-
-  // Init Hive (local storage)
+  // Hive: WAJIB await sebelum provider dibuat
   await Hive.initFlutter();
   Hive.registerAdapter(HabitModelAdapter());
   Hive.registerAdapter(GoalModelAdapter());
@@ -55,14 +49,14 @@ void main() async {
   Hive.registerAdapter(MemoModelAdapter());
   Hive.registerAdapter(FocusSessionModelAdapter());
 
-  // Init Firebase (graceful fallback jika google-services.json belum dikonfigurasi)
+  // Firebase: await tapi cepat, dibutuhkan AuthProvider
   bool firebaseReady = false;
   try {
     await Firebase.initializeApp();
     firebaseReady = true;
     debugPrint('Firebase initialized ✅');
   } catch (e) {
-    debugPrint('Firebase not configured yet (ganti google-services.json dengan yang asli): $e');
+    debugPrint('Firebase not configured: $e');
   }
 
   runApp(
@@ -71,22 +65,19 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()..init()),
         ChangeNotifierProvider(create: (_) => HabitProvider()..init()),
         ChangeNotifierProvider(create: (_) => GoalProvider()..init()),
-        ChangeNotifierProvider(create: (_) => RewardProvider()),
+        ChangeNotifierProvider(create: (_) => RewardProvider()..init()),
         ChangeNotifierProvider(create: (_) {
           final auth = AuthProvider();
           if (firebaseReady) auth.init();
           return auth;
         }),
         ChangeNotifierProvider(create: (_) => AdminProvider()..init()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()), // init dipanggil HomeScreen setelah NotificationService siap
         ChangeNotifierProvider(create: (_) => UserProfileProvider()..init()),
         ChangeNotifierProvider(create: (_) => MemoProvider()..init()),
         ChangeNotifierProvider(create: (_) {
-          final focusTimer = FocusTimerProvider()..init();
-          // Restore session jika ada yang aktif saat app dibuka
-          Future.delayed(const Duration(milliseconds: 100), () {
-            focusTimer.restoreSessionIfActive();
-          });
+          final focusTimer = FocusTimerProvider();
+          focusTimer.init().then((_) => focusTimer.restoreSessionIfActive());
           return focusTimer;
         }),
         ChangeNotifierProvider(create: (_) => AdMobProvider()..init()),
@@ -94,6 +85,12 @@ void main() async {
       child: const BisaProduktifApp(),
     ),
   );
+
+  // Heavy init setelah UI tampil — tidak block startup
+  NotificationService().init();
+  MobileAds.instance.initialize().then((_) {
+    debugPrint('AdMob initialized ✅');
+  });
 }
 
 class BisaProduktifApp extends StatelessWidget {

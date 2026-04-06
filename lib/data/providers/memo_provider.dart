@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/memo_model.dart';
+import '../../core/services/firebase_service.dart';
 
 class MemoProvider extends ChangeNotifier {
   static const String _boxName = 'memos';
@@ -49,6 +50,12 @@ class MemoProvider extends ChangeNotifier {
     _memos.add(memo);
     _sortMemos();
     notifyListeners();
+
+    FirebaseService.logActivity(type: 'memo_create', data: {
+      'memoId': memo.id,
+      'contentLength': memo.content.length,
+      'hasVoice': voiceFilePath != null,
+    });
   }
 
   /// Update memo
@@ -66,6 +73,11 @@ class MemoProvider extends ChangeNotifier {
       await _box.put(memoId, memo);
       _sortMemos();
       notifyListeners();
+
+      FirebaseService.logActivity(type: 'memo_update', data: {
+        'memoId': memoId,
+        'contentLength': memo.content.length,
+      });
     } catch (e) {
       debugPrint('[Memo] Error updating memo $memoId: $e');
     }

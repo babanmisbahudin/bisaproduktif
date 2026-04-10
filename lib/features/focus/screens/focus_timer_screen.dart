@@ -474,185 +474,293 @@ class _FocusTimerScreenState extends State<FocusTimerScreen> {
   ) {
     final session = focusProvider.currentSession!;
     final remaining = focusProvider.remainingSeconds;
+    final totalSeconds = session.durationSeconds;
+    final progress = totalSeconds > 0 ? (totalSeconds - remaining) / totalSeconds : 1.0;
+    final isDone = remaining <= 0;
 
-    return Stack(
-      children: [
-        // Full-screen semi-transparent overlay
-        Container(
-          color: Colors.black.withValues(alpha: 0.3),
+    final categoryEmoji = switch (session.category) {
+      'prayer'   => '📿',
+      'study'    => '📚',
+      'work'     => '💼',
+      'exercise' => '🏃',
+      _          => '📖',
+    };
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1A2E1A), Color(0xFF2C4A2C), Color(0xFF1A2E1A)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
-
-        // Timer display
-        Center(
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                session.activity,
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
 
-              // Countdown dengan progress ring
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Progress ring background
-                  Container(
-                    width: 220,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-
-                  // Animated pulsing countdown
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: 1),
-                    duration: const Duration(seconds: 1),
-                    onEnd: () {
-                      // Loop animation every second
-                    },
-                    builder: (context, value, child) {
-                      return Container(
-                        width: 200 + (value * 10),
-                        height: 200 + (value * 10),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.5 - (value * 0.2)),
-                              blurRadius: 20 + (value * 10),
-                              spreadRadius: 2 + (value * 3),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _formatFocusTime(remaining),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 64,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _getTimeLabel(remaining),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '⏱️ Berjalan',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 60),
-
-              // Controls: Selesai (Complete) & Stop
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: remaining <= 0
-                        ? () async {
-                            await focusProvider.completeSession();
-                            if (mounted) setState(() {});
-                          }
-                        : null,
-                    icon: const Icon(Icons.check_circle),
-                    label: Text(
-                      'Selesai',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      disabledBackgroundColor: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await focusProvider.cancelSession();
-                      if (mounted) setState(() {});
-                    },
-                    icon: const Icon(Icons.close),
-                    label: Text(
-                      'Batalkan',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.danger,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 40),
-
-              // Info & Anti-Cheat Warning
+              // ── Header: kategori + nama aktivitas ──────────────────────────
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '⏱️ Waktu harus selesai sepenuhnya untuk mendapat poin',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.yellow,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '⚠️ Manipulasi waktu sistem akan membatalkan reward',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.red,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '📵 Semua notifikasi dimatikan saat fokus',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.white,
+                    Text(categoryEmoji, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        session.activity,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(height: 12),
+
+              // Status badge
+              Text(
+                isDone ? '🎉 Waktu Habis! Kamu Luar Biasa!' : '🔥 Mode Fokus Aktif',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: isDone
+                      ? const Color(0xFFFFD700)
+                      : Colors.white.withValues(alpha: 0.6),
+                  fontWeight: isDone ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
+
+              const Spacer(),
+
+              // ── Lingkaran progress ──────────────────────────────────────────
+              SizedBox(
+                width: 260,
+                height: 260,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Arc progress background
+                    SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: 1.0,
+                        strokeWidth: 10,
+                        color: Colors.white.withValues(alpha: 0.08),
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    // Arc progress foreground
+                    SizedBox.expand(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: progress),
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeOutCubic,
+                        builder: (_, val, _) => CircularProgressIndicator(
+                          value: val,
+                          strokeWidth: 10,
+                          color: isDone
+                              ? const Color(0xFFFFD700)
+                              : AppColors.primary,
+                          strokeCap: StrokeCap.round,
+                        ),
+                      ),
+                    ),
+                    // Glowing inner circle
+                    Container(
+                      width: 220,
+                      height: 220,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.04),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isDone ? const Color(0xFFFFD700) : AppColors.primary)
+                                .withValues(alpha: 0.25),
+                            blurRadius: 30,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Countdown text
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _formatFocusTime(remaining),
+                          style: GoogleFonts.poppins(
+                            fontSize: remaining >= 3600 ? 44 : 56,
+                            fontWeight: FontWeight.w800,
+                            color: isDone
+                                ? const Color(0xFFFFD700)
+                                : Colors.white,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _getTimeLabel(remaining),
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.45),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${(progress * 100).toInt()}% selesai',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // ── Info singkat ───────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildInfoChip('⏱️', '${session.durationSeconds ~/ 60} menit'),
+                  const SizedBox(width: 10),
+                  _buildInfoChip('📵', 'Mode Fokus'),
+                  const SizedBox(width: 10),
+                  _buildInfoChip('🪙', 'Reward menanti'),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Tombol aksi ────────────────────────────────────────────────
+              Row(
+                children: [
+                  // Batalkan
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Text('Batalkan sesi?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                            content: Text(
+                              'Progres sesi ini akan hilang dan reward tidak akan didapat.',
+                              style: GoogleFonts.poppins(fontSize: 13),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text('Lanjutkan', style: GoogleFonts.poppins(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text('Batalkan', style: GoogleFonts.poppins(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await focusProvider.cancelSession();
+                          if (mounted) setState(() {});
+                        }
+                      },
+                      icon: const Icon(Icons.close, size: 18),
+                      label: Text('Batalkan', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Selesai
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: isDone
+                          ? () async {
+                              await focusProvider.completeSession();
+                              if (mounted) setState(() {});
+                            }
+                          : null,
+                      icon: Icon(isDone ? Icons.emoji_events : Icons.lock_clock, size: 20),
+                      label: Text(
+                        isDone ? 'Ambil Reward!' : 'Menunggu selesai...',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDone ? const Color(0xFFFFD700) : Colors.white.withValues(alpha: 0.12),
+                        foregroundColor: isDone ? Colors.black : Colors.white38,
+                        disabledBackgroundColor: Colors.white.withValues(alpha: 0.08),
+                        disabledForegroundColor: Colors.white24,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: isDone ? 4 : 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String emoji, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

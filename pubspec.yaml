@@ -2,7 +2,7 @@ name: bisaproduktif
 description: "BisaProduktif - Aplikasi produktivitas gamifikasi dengan AI Coach"
 publish_to: 'none'
 
-version: 1.0.3+4
+version: 1.0.3+5
 
 environment:
   sdk: ^3.11.0
@@ -47,9 +47,6 @@ dependencies:
 
   # UUID
   uuid: ^4.0.0
-
-  # Timer & Async
-  countup: ^0.1.3
 
   # Google Mobile Ads (AdMob)
   google_mobile_ads: ^5.1.0

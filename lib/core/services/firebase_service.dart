@@ -333,16 +333,17 @@ class FirebaseService {
     }
   }
 
-  /// Update status redemption (approve/reject) di Firestore
+  /// Update status redemption di Firestore
+  /// Status valid: 'diproses', 'dikirim', 'ditolak'
   static Future<void> updateRedemptionStatus({
     required String transactionId,
-    required String status, // 'approved' or 'rejected'
+    required String status,
     required String adminEmail,
     String? rejectionReason,
   }) async {
     if (!isLoggedIn) return;
     try {
-      final updateData = {
+      final updateData = <String, dynamic>{
         'status': status,
         'approvedBy': adminEmail,
         'approvedAt': FieldValue.serverTimestamp(),
@@ -352,7 +353,37 @@ class FirebaseService {
       }
       await _db.collection('redemptions').doc(transactionId).update(updateData);
     } catch (e) {
-      debugPrint('[Firebase] Error: $e');
+      debugPrint('[Firebase] Error updateRedemptionStatus: $e');
+      rethrow;
+    }
+  }
+
+  /// Stream redemption milik user yang sedang login (untuk notifikasi status)
+  static Stream<List<Map<String, dynamic>>> getUserRedemptionsStream() {
+    if (!isLoggedIn) return const Stream.empty();
+    return _db
+        .collection('redemptions')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => _redemptionFromDoc(doc)).toList());
+  }
+
+  /// Hapus SEMUA data redemption dari Firestore (admin: reset/bersihkan data lama)
+  static Future<void> clearAllRedemptions() async {
+    if (!isLoggedIn) return;
+    try {
+      final snapshot = await _db.collection('redemptions').get();
+      final batch = _db.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      debugPrint('[Firebase] Semua data redemption dihapus (${snapshot.docs.length} dokumen)');
+    } catch (e) {
+      debugPrint('[Firebase] Error clearAllRedemptions: $e');
+      rethrow;
     }
   }
 

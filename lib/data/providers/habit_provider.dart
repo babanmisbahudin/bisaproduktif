@@ -34,10 +34,10 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> init() async {
     _box = await Hive.openBox<HabitModel>(_boxName);
+    _isLoaded = true; // harus di-set SEBELUM _loadHabits() agar tidak return early
     await _loadCoins();
     await _resetIfNewDay();
     _loadHabits();
-    _isLoaded = true;
     // Pantau lifecycle agar reset harian berjalan saat app kembali dari background
     WidgetsBinding.instance.addObserver(this);
     notifyListeners();
@@ -125,7 +125,7 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     if (!titleResult.isValid) {
       if (titleResult.trustPenalty > 0) {
-        _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit tidak valid');
+        await _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit tidak valid');
       }
       return titleResult;
     }
@@ -133,13 +133,13 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
     // 2. Rate limit check
     final rateResult = await ContentValidator.checkHabitRateLimit();
     if (!rateResult.isValid) {
-      _applyTrustPenalty(rateResult.trustPenalty, 'Rate limit habit terlampaui');
+      await _applyTrustPenalty(rateResult.trustPenalty, 'Rate limit habit terlampaui');
       return rateResult;
     }
 
     // 3. If suspicious but valid — apply trust penalty but continue
     if (titleResult.isSuspicious && titleResult.trustPenalty > 0) {
-      _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit mencurigakan');
+      await _applyTrustPenalty(titleResult.trustPenalty, 'Judul habit mencurigakan');
     }
 
     // 4. Koin ditentukan oleh kategori (bukan user)
@@ -249,7 +249,7 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
     final secondsSinceOpen = now.difference(appOpen).inSeconds;
 
     if (secondsSinceOpen < 30) {
-      _applyTrustPenalty(15, 'Penyelesaian terlalu cepat (< 30 detik sejak app dibuka)');
+      await _applyTrustPenalty(15, 'Penyelesaian terlalu cepat (< 30 detik sejak app dibuka)');
       return false;
     }
 
@@ -262,14 +262,14 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
         .toList();
 
     if (recentTimestamps.length >= 10) {
-      _applyTrustPenalty(5, 'Terlalu banyak habit per jam (max 10)');
+      await _applyTrustPenalty(5, 'Terlalu banyak habit per jam (max 10)');
       return false;
     }
 
     // Anti-fraud level 2: max 20 habit per hari
     final todayCompletions = _habits.where((h) => h.isCompletedOnDate).length;
     if (todayCompletions >= 20) {
-      _applyTrustPenalty(8, 'Terlalu banyak habit per hari (max 20)');
+      await _applyTrustPenalty(8, 'Terlalu banyak habit per hari (max 20)');
       return false;
     }
 
@@ -331,12 +331,12 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ── Anti-Fraud ────────────────────────────────────────────────────────────
 
-  void _applyTrustPenalty(int penalty, String reason) {
+  Future<void> _applyTrustPenalty(int penalty, String reason) async {
     _trustScore = (_trustScore - penalty).clamp(0, 100);
-    _saveTrustScore(); // intentionally fire-and-forget in sync context
+    await _saveTrustScore(); // await agar tidak hilang saat app di-kill
     debugPrint('[Anti-Fraud] Trust score -$penalty: $reason (score: $_trustScore)');
 
-    // Log fraud event ke Firebase agar admin bisa lihat
+    // Log fraud event ke Firebase agar admin bisa lihat (fire-and-forget ok di sini)
     FirebaseService.syncTrustScore(_trustScore);
     FirebaseService.logActivity(type: 'fraud_detected', data: {
       'penalty': penalty,
@@ -349,8 +349,8 @@ class HabitProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Public so other providers (GoalProvider) can apply trust penalties
-  void applyTrustPenaltyPublic(int penalty, String reason) {
-    _applyTrustPenalty(penalty, reason);
+  Future<void> applyTrustPenaltyPublic(int penalty, String reason) async {
+    await _applyTrustPenalty(penalty, reason);
   }
 
   String getTrustStatus() {

@@ -141,6 +141,48 @@ class NotificationService {
     await _plugin.cancel(_goalBaseId + goalIndex);
   }
 
+  // ── Reward Status Notification ────────────────────────────────────────────
+
+  /// Tampilkan notifikasi saat status reward user berubah.
+  /// [status]: 'diproses', 'dikirim', 'ditolak'
+  Future<void> showRewardStatusNotification({
+    required String rewardTitle,
+    required String status,
+  }) async {
+    if (!_initialized) return;
+
+    String title;
+    String body;
+
+    switch (status) {
+      case 'diproses':
+        title = '🔄 Reward Sedang Diproses';
+        body = '"$rewardTitle" sedang diproses oleh admin. Mohon ditunggu ya!';
+        break;
+      case 'dikirim':
+        title = '✅ Reward Sudah Dikirim!';
+        body = '"$rewardTitle" sudah dikirim! Cek WhatsApp kamu untuk detail pengiriman.';
+        break;
+      case 'ditolak':
+        title = '❌ Reward Ditolak';
+        body = '"$rewardTitle" ditolak admin. Koin sudah dikembalikan ke akunmu.';
+        break;
+      default:
+        return;
+    }
+
+    try {
+      await _plugin.show(
+        500 + status.hashCode.abs() % 100,
+        title,
+        body,
+        _notifDetails(),
+      );
+    } catch (e) {
+      debugPrint('[Notif] Error showRewardStatusNotification: $e');
+    }
+  }
+
   // ── Test Notification ─────────────────────────────────────────────────────
 
   Future<void> showTestNotification() async {

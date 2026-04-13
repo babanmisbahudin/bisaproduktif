@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_responsive.dart';
 import '../../../core/widgets/bottom_navbar_widget.dart';
 import '../../../core/services/firebase_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../data/providers/admin_provider.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/admob_provider.dart';
@@ -21,6 +23,47 @@ class RewardScreen extends StatefulWidget {
 }
 
 class _RewardScreenState extends State<RewardScreen> {
+  StreamSubscription<List<Map<String, dynamic>>>? _redemptionSub;
+  // Simpan status terakhir tiap transaksi untuk deteksi perubahan
+  final Map<String, String> _lastKnownStatus = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _startRedemptionStatusListener();
+  }
+
+  void _startRedemptionStatusListener() {
+    _redemptionSub?.cancel(); // pastikan tidak ada listener lama yang bocor
+    try {
+      _redemptionSub = FirebaseService.getUserRedemptionsStream().listen((redemptions) {
+        for (final r in redemptions) {
+          final id = r['id'] as String? ?? '';
+          final status = r['status'] as String? ?? 'pending';
+          final title = r['rewardTitle'] as String? ?? 'Reward';
+
+          final prev = _lastKnownStatus[id];
+          if (prev != null && prev != status) {
+            // Status berubah → kirim notifikasi
+            NotificationService().showRewardStatusNotification(
+              rewardTitle: title,
+              status: status,
+            );
+          }
+          _lastKnownStatus[id] = status;
+        }
+      });
+    } catch (e) {
+      debugPrint('[RewardScreen] Error starting redemption listener: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _redemptionSub?.cancel();
+    super.dispose();
+  }
+
   // ── Helper Methods for Theme-Aware Colors ──────────────────────────────
 
   Color _getBackgroundColor(BuildContext context) {
@@ -847,6 +890,9 @@ class _RewardScreenState extends State<RewardScreen> {
       case RedeemResult.tooManyPending:
         _showSnack('Terlalu banyak request pending. Tunggu approval terlebih dahulu ⏳', AppColors.warning);
         break;
+      case RedeemResult.cooldownActive:
+        _showSnack('Tunggu 5 menit sebelum tukar reward lagi ⏱️', AppColors.warning);
+        break;
     }
   }
 
@@ -978,6 +1024,33 @@ class _RewardScreenState extends State<RewardScreen> {
     final date = tx.timestamp as DateTime;
     final dateStr =
         '${date.day}/${date.month}/${date.year}  ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final status = tx.status as String? ?? 'pending';
+
+    // Status badge config
+    Color badgeBg;
+    Color badgeText;
+    String statusLabel;
+    switch (status) {
+      case 'diproses':
+        badgeBg = Colors.blue.withValues(alpha: 0.12);
+        badgeText = Colors.blue[800]!;
+        statusLabel = '🔄 Diproses';
+        break;
+      case 'dikirim':
+        badgeBg = Colors.green.withValues(alpha: 0.12);
+        badgeText = Colors.green[800]!;
+        statusLabel = '✅ Dikirim';
+        break;
+      case 'ditolak':
+        badgeBg = Colors.red.withValues(alpha: 0.12);
+        badgeText = Colors.red[800]!;
+        statusLabel = '❌ Ditolak';
+        break;
+      default: // pending
+        badgeBg = Colors.amber.withValues(alpha: 0.15);
+        badgeText = Colors.amber[800]!;
+        statusLabel = '⏳ Menunggu';
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -985,6 +1058,13 @@ class _RewardScreenState extends State<RewardScreen> {
       decoration: BoxDecoration(
         color: _getContainerColor(context),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: status == 'ditolak'
+              ? Colors.red.withValues(alpha: 0.2)
+              : status == 'dikirim'
+                  ? Colors.green.withValues(alpha: 0.2)
+                  : Colors.transparent,
+        ),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -992,40 +1072,104 @@ class _RewardScreenState extends State<RewardScreen> {
               offset: const Offset(0, 2)),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(tx.rewardEmoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tx.rewardTitle,
-                    style: GoogleFonts.poppins(
-                        fontSize: 13, fontWeight: FontWeight.w600,
-                        color: _getTextPrimaryColor(context))),
-                Text(dateStr,
-                    style: GoogleFonts.poppins(
-                        fontSize: 11, color: _getTextSecondaryColor(context))),
-              ],
-            ),
+          Row(
+            children: [
+              Text(tx.rewardEmoji, style: const TextStyle(fontSize: 26)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tx.rewardTitle,
+                        style: GoogleFonts.poppins(
+                            fontSize: 13, fontWeight: FontWeight.w600,
+                            color: _getTextPrimaryColor(context))),
+                    Text(dateStr,
+                        style: GoogleFonts.poppins(
+                            fontSize: 11, color: _getTextSecondaryColor(context))),
+                  ],
+                ),
+              ),
+              // Koin badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.remove, color: AppColors.danger, size: 12),
+                    Text('${tx.coinsCost}',
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, fontWeight: FontWeight.w700,
+                            color: AppColors.danger)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.danger.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.remove, color: AppColors.danger, size: 13),
-                Text('${tx.coinsCost}',
+          const SizedBox(height: 10),
+          // Status badge + pesan
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(statusLabel,
                     style: GoogleFonts.poppins(
-                        fontSize: 13, fontWeight: FontWeight.w700,
-                        color: AppColors.danger)),
+                        fontSize: 12, fontWeight: FontWeight.w600,
+                        color: badgeText)),
+              ),
+              if (status == 'ditolak' && tx.rejectionReason != null && (tx.rejectionReason as String).isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tx.rejectionReason as String,
+                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.red[700]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else if (status == 'dikirim') ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Cek WhatsApp kamu untuk detail pengiriman',
+                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.green[700]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else if (status == 'diproses') ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Admin sedang menyiapkan rewardmu',
+                    style: GoogleFonts.poppins(fontSize: 11, color: Colors.blue[700]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Menunggu konfirmasi dari admin',
+                    style: GoogleFonts.poppins(fontSize: 11, color: _getTextSecondaryColor(context)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
-            ),
+            ],
           ),
         ],
       ),

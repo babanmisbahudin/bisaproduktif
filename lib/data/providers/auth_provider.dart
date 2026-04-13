@@ -89,7 +89,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Logout dan reset semua data (coins, habits, goals)
-  Future<void> signOut() async {
+  Future<void> signOut({AdminProvider? adminProvider}) async {
     try {
       // Get current coins & trust score dari SharedPreferences
       final prefs = await SharedPreferences.getInstance();
@@ -107,6 +107,7 @@ class AuthProvider extends ChangeNotifier {
       await prefs.remove('user_coins');
       await prefs.remove('trust_score');
       await prefs.remove('user_name');
+      await prefs.remove('admin_email'); // reset admin status saat logout
     } catch (e) {
       debugPrint('[Auth] Failed to save data to Firebase: $e');
     }
@@ -118,6 +119,9 @@ class AuthProvider extends ChangeNotifier {
 
     _user = null;
     notifyListeners();
+
+    // Reset admin state di provider (bersihkan in-memory _isAdmin)
+    await adminProvider?.clearAdmin();
 
     // Trigger navigation callback setelah logout selesai
     onLogoutNavigate?.call();
@@ -166,7 +170,7 @@ class AuthProvider extends ChangeNotifier {
 
         // Update HabitProvider dengan coins dari Firebase
         if (habitProvider != null) {
-          habitProvider.syncCoinsFromFirebase(firebaseCoins);
+          await habitProvider.syncCoinsFromFirebase(firebaseCoins);
         }
 
         debugPrint('[Auth] Coins synced from Firebase: $firebaseCoins');

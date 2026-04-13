@@ -730,23 +730,69 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Semua Klaim Reward',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  pendingCount > 0
-                      ? '$pendingCount menunggu · ${all.length} total'
-                      : '${all.length} klaim · semua sudah diproses',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: pendingCount > 0 ? Colors.orange : AppColors.textSecondary,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Semua Klaim Reward',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            pendingCount > 0
+                                ? '$pendingCount menunggu · ${all.length} total'
+                                : '${all.length} klaim · semua sudah diproses',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: pendingCount > 0 ? Colors.orange : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Text('Hapus Semua Data?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                            content: Text(
+                              'Semua data klaim reward (${all.length} klaim) akan dihapus permanen dari sistem.\n\nTindakan ini tidak bisa dibatalkan.',
+                              style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Batal', style: GoogleFonts.poppins())),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                child: Text('Hapus Semua', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed == true && context.mounted) {
+                          final ok = await adminProvider.clearAllRedemptions();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(ok ? 'Semua data klaim berhasil dihapus' : 'Gagal menghapus data', style: GoogleFonts.poppins()),
+                              backgroundColor: ok ? AppColors.primary : Colors.red,
+                            ));
+                          }
+                        }
+                      },
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                      label: Text('Hapus Semua', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -866,40 +912,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: status == 'approved'
-                        ? Colors.green.withValues(alpha: 0.12)
-                        : status == 'rejected'
-                            ? Colors.red.withValues(alpha: 0.12)
-                            : Colors.amber.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: status == 'approved'
-                          ? Colors.green.withValues(alpha: 0.3)
-                          : status == 'rejected'
-                              ? Colors.red.withValues(alpha: 0.3)
-                              : Colors.amber.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    status == 'approved'
-                        ? '✅ Disetujui'
-                        : status == 'rejected'
-                            ? '❌ Ditolak'
-                            : '⏳ Pending',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: status == 'approved'
-                          ? Colors.green[800]
-                          : status == 'rejected'
-                              ? Colors.red[800]
-                              : Colors.amber[800],
-                    ),
-                  ),
-                ),
+                _buildStatusBadge(status),
               ],
             ),
           ),
@@ -1049,73 +1062,267 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
                     ),
                   ),
           ),
-          // Tombol Hapus Klaim
-          if (status != 'pending')
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: Text(
-                          'Hapus Data Klaim?',
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-                        ),
-                        content: Text(
-                          'Data klaim reward "$rewardTitle" dari $userName akan dihapus permanen dari sistem.\n\nTindakan ini tidak bisa dibatalkan.',
-                          style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: Text('Batal', style: GoogleFonts.poppins()),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Text('Hapus', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed == true && context.mounted) {
-                      final id = redemption['id'] as String? ?? '';
-                      final ok = await adminProvider.deleteRedemption(id);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              ok ? 'Data klaim berhasil dihapus' : 'Gagal menghapus data klaim',
-                              style: GoogleFonts.poppins(),
-                            ),
-                            backgroundColor: ok ? AppColors.primary : Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: Text(
-                    'Hapus Data Klaim',
-                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+          // ── Tombol Aksi Admin ──────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: _buildAdminActionButtons(
+              context: context,
+              redemption: redemption,
+              adminProvider: adminProvider,
+              rewardProvider: rewardProvider,
+              habitProvider: habitProvider,
+              status: status,
+              rewardTitle: rewardTitle,
+              userName: userName,
             ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAdminActionButtons({
+    required BuildContext context,
+    required Map<String, dynamic> redemption,
+    required AdminProvider adminProvider,
+    required RewardProvider rewardProvider,
+    required HabitProvider habitProvider,
+    required String status,
+    required String rewardTitle,
+    required String userName,
+  }) {
+    final id = redemption['id'] as String? ?? '';
+
+    // Status final: hanya tampilkan tombol hapus
+    if (status == 'dikirim' || status == 'ditolak') {
+      return OutlinedButton.icon(
+        onPressed: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (_) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text('Hapus Data Klaim?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+              content: Text(
+                'Data klaim "$rewardTitle" dari $userName akan dihapus permanen.\n\nTindakan ini tidak bisa dibatalkan.',
+                style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Batal', style: GoogleFonts.poppins())),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  child: Text('Hapus', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true && context.mounted) {
+            final ok = await adminProvider.deleteRedemption(id);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(ok ? 'Data klaim berhasil dihapus' : 'Gagal menghapus', style: GoogleFonts.poppins()),
+                backgroundColor: ok ? AppColors.primary : Colors.red,
+              ));
+            }
+          }
+        },
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.red,
+          side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        icon: const Icon(Icons.delete_outline, size: 18),
+        label: Text('Hapus Data Klaim', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+      );
+    }
+
+    // Status 'pending': tombol Proses + Tolak
+    if (status == 'pending') {
+      return Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final ok = await adminProvider.markAsProcessing(transactionId: id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(ok ? '🔄 Klaim ditandai sedang diproses' : 'Gagal memproses', style: GoogleFonts.poppins()),
+                    backgroundColor: ok ? Colors.blue : Colors.red,
+                  ));
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.sync, size: 18),
+              label: Text('Proses', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _showRejectDialog(context, id, adminProvider, rewardTitle, userName),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.close, size: 18),
+              label: Text('Tolak', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Status 'diproses': tombol Kirim + Tolak
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final ok = await adminProvider.markAsSent(transactionId: id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(ok ? '✅ Reward ditandai sudah dikirim' : 'Gagal update status', style: GoogleFonts.poppins()),
+                  backgroundColor: ok ? Colors.green : Colors.red,
+                ));
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.local_shipping_outlined, size: 18),
+            label: Text('Kirim', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _showRejectDialog(context, id, adminProvider, rewardTitle, userName),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.close, size: 18),
+            label: Text('Tolak', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showRejectDialog(
+    BuildContext context,
+    String transactionId,
+    AdminProvider adminProvider,
+    String rewardTitle,
+    String userName,
+  ) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Tolak Klaim Reward?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '"$rewardTitle" dari $userName\n\nKoin akan dikembalikan ke akun user.',
+              style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Alasan penolakan (opsional)',
+                hintStyle: GoogleFonts.poppins(fontSize: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Batal', style: GoogleFonts.poppins())),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final reason = reasonCtrl.text.trim().isEmpty ? 'Tidak memenuhi syarat' : reasonCtrl.text.trim();
+              final ok = await adminProvider.rejectRedemption(transactionId: transactionId, reason: reason);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(ok ? '❌ Klaim ditolak, koin dikembalikan' : 'Gagal menolak klaim', style: GoogleFonts.poppins()),
+                  backgroundColor: ok ? Colors.orange : Colors.red,
+                ));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: Text('Tolak', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    String label;
+
+    switch (status) {
+      case 'diproses':
+        bgColor = Colors.blue.withValues(alpha: 0.12);
+        borderColor = Colors.blue.withValues(alpha: 0.3);
+        textColor = Colors.blue[800]!;
+        label = '🔄 Diproses';
+        break;
+      case 'dikirim':
+        bgColor = Colors.green.withValues(alpha: 0.12);
+        borderColor = Colors.green.withValues(alpha: 0.3);
+        textColor = Colors.green[800]!;
+        label = '✅ Dikirim';
+        break;
+      case 'ditolak':
+        bgColor = Colors.red.withValues(alpha: 0.12);
+        borderColor = Colors.red.withValues(alpha: 0.3);
+        textColor = Colors.red[800]!;
+        label = '❌ Ditolak';
+        break;
+      default: // 'pending'
+        bgColor = Colors.amber.withValues(alpha: 0.15);
+        borderColor = Colors.amber.withValues(alpha: 0.3);
+        textColor = Colors.amber[800]!;
+        label = '⏳ Menunggu';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: textColor),
       ),
     );
   }
@@ -1175,8 +1382,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen>
               Expanded(
                 child: _buildStatCard(
                   emoji: '✅',
-                  label: 'Total Approved',
-                  value: '${rewardProvider.approvedTransactions.length}',
+                  label: 'Total Dikirim',
+                  value: '${rewardProvider.sentRedemptions.length}',
                   color: AppColors.success,
                 ),
               ),

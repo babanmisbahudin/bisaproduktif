@@ -11,6 +11,7 @@ import '../../../core/widgets/responsive_layout_widget.dart';
 import '../../../core/widgets/dynamic_scene_painter.dart';
 import '../../../core/services/weather_service.dart' as weather;
 import '../../../data/providers/auth_provider.dart' as auth_prov;
+import '../../../data/providers/admin_provider.dart';
 import '../../../data/models/habit_model.dart';
 import '../../../data/providers/habit_provider.dart';
 import '../../../data/providers/goal_provider.dart';
@@ -23,6 +24,7 @@ import '../../../data/providers/memo_provider.dart';
 import '../../../data/providers/focus_timer_provider.dart';
 import '../../../core/widgets/bottom_navbar_widget.dart';
 import '../../../data/providers/user_profile_provider.dart';
+import '../../../data/providers/reward_provider.dart';
 import '../../profile/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -1533,10 +1535,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   onPressed: () async {
                     if (!mounted) return;
                     // Clear semua provider data sebelum logout
-                    final habitProv = context.read<HabitProvider>();
-                    final goalProv = context.read<GoalProvider>();
-                    final memoProv = context.read<MemoProvider>();
-                    final focusProv = context.read<FocusTimerProvider>();
+                    final habitProv   = context.read<HabitProvider>();
+                    final goalProv    = context.read<GoalProvider>();
+                    final memoProv    = context.read<MemoProvider>();
+                    final focusProv   = context.read<FocusTimerProvider>();
+                    final rewardProv  = context.read<RewardProvider>();
+                    final profileProv = context.read<UserProfileProvider>();
+                    final adminProv   = context.read<AdminProvider>();
 
                     Navigator.pop(context); // tutup sheet dulu
 
@@ -1545,8 +1550,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     await goalProv.clearUserData();
                     await memoProv.clearUserData();
                     await focusProv.clearUserData();
-                    // signOut() akan trigger onLogoutNavigate callback
-                    await authProv.signOut();
+                    await rewardProv.clearUserData();   // reward history bersih
+                    await profileProv.clearProfile();   // data profil bersih
+                    // signOut() akan trigger onLogoutNavigate callback + reset admin state
+                    await authProv.signOut(adminProvider: adminProv);
                   },
                   icon: const Icon(Icons.logout, size: 18),
                   label: Text(

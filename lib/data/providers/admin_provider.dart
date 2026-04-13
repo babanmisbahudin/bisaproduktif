@@ -343,74 +343,108 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  /// Approve pending redemption dari Firebase
-  Future<bool> approveFirebaseRedemption({
+  /// Admin: pending → diproses
+  Future<bool> markAsProcessing({
     required String transactionId,
-    required RewardProvider rewardProvider,
-    required HabitProvider habitProvider,
   }) async {
     if (!_isAdmin) return false;
-
     try {
       await FirebaseService.updateRedemptionStatus(
         transactionId: transactionId,
-        status: 'approved',
+        status: 'diproses',
         adminEmail: _adminEmail!,
       );
-
-      // Update status lokal secara langsung (tanpa fetch ulang)
-      final idx = _allRedemptions.indexWhere((r) => r['id'] == transactionId);
-      if (idx != -1) {
-        _allRedemptions[idx] = Map.from(_allRedemptions[idx])
-          ..['status'] = 'approved'
-          ..['approvedBy'] = _adminEmail;
-        _pendingRedemptions = _allRedemptions
-            .where((r) => r['status'] == 'pending')
-            .toList();
-        notifyListeners();
-      }
+      _updateLocalRedemptionStatus(transactionId, 'diproses');
       return true;
     } catch (e) {
-      debugPrint('[Admin] Error approving redemption: $e');
+      debugPrint('[Admin] Error markAsProcessing: $e');
       return false;
     }
   }
 
-  /// Reject pending redemption dari Firebase
+  /// Admin: diproses → dikirim
+  Future<bool> markAsSent({
+    required String transactionId,
+  }) async {
+    if (!_isAdmin) return false;
+    try {
+      await FirebaseService.updateRedemptionStatus(
+        transactionId: transactionId,
+        status: 'dikirim',
+        adminEmail: _adminEmail!,
+      );
+      _updateLocalRedemptionStatus(transactionId, 'dikirim');
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error markAsSent: $e');
+      return false;
+    }
+  }
+
+  /// Admin: pending/diproses → ditolak (refund coins ditangani di RewardProvider)
+  Future<bool> rejectRedemption({
+    required String transactionId,
+    required String reason,
+  }) async {
+    if (!_isAdmin) return false;
+    try {
+      await FirebaseService.updateRedemptionStatus(
+        transactionId: transactionId,
+        status: 'ditolak',
+        adminEmail: _adminEmail!,
+        rejectionReason: reason,
+      );
+      _updateLocalRedemptionStatus(transactionId, 'ditolak', reason: reason);
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error rejectRedemption: $e');
+      return false;
+    }
+  }
+
+  void _updateLocalRedemptionStatus(String transactionId, String status, {String? reason}) {
+    final idx = _allRedemptions.indexWhere((r) => r['id'] == transactionId);
+    if (idx != -1) {
+      _allRedemptions[idx] = Map.from(_allRedemptions[idx])
+        ..['status'] = status
+        ..['approvedBy'] = _adminEmail;
+      if (reason != null) _allRedemptions[idx]['rejectionReason'] = reason;
+      _pendingRedemptions = _allRedemptions
+          .where((r) => r['status'] == 'pending')
+          .toList();
+      notifyListeners();
+    }
+  }
+
+  /// Hapus SEMUA data redemption (bersihkan data lama)
+  Future<bool> clearAllRedemptions() async {
+    if (!_isAdmin) return false;
+    try {
+      await FirebaseService.clearAllRedemptions();
+      _allRedemptions.clear();
+      _pendingRedemptions.clear();
+      notifyListeners();
+      debugPrint('[Admin] Semua data redemption dihapus');
+      return true;
+    } catch (e) {
+      debugPrint('[Admin] Error clearAllRedemptions: $e');
+      return false;
+    }
+  }
+
+  // Alias backward compat
+  Future<bool> approveFirebaseRedemption({
+    required String transactionId,
+    required RewardProvider rewardProvider,
+    required HabitProvider habitProvider,
+  }) => markAsProcessing(transactionId: transactionId);
+
   Future<bool> rejectFirebaseRedemption({
     required String transactionId,
     required String reason,
     required RewardProvider rewardProvider,
     required HabitProvider habitProvider,
-  }) async {
-    if (!_isAdmin) return false;
-
-    try {
-      await FirebaseService.updateRedemptionStatus(
-        transactionId: transactionId,
-        status: 'rejected',
-        adminEmail: _adminEmail!,
-        rejectionReason: reason,
-      );
-
-      // Update status lokal secara langsung (tanpa fetch ulang)
-      final idx = _allRedemptions.indexWhere((r) => r['id'] == transactionId);
-      if (idx != -1) {
-        _allRedemptions[idx] = Map.from(_allRedemptions[idx])
-          ..['status'] = 'rejected'
-          ..['approvedBy'] = _adminEmail
-          ..['rejectionReason'] = reason;
-        _pendingRedemptions = _allRedemptions
-            .where((r) => r['status'] == 'pending')
-            .toList();
-        notifyListeners();
-      }
-      return true;
-    } catch (e) {
-      debugPrint('[Admin] Error rejecting redemption: $e');
-      return false;
-    }
-  }
+  }) => rejectRedemption(transactionId: transactionId, reason: reason);
 
   // ── Reward Catalog Management ──────────────────────────────────────────────
 

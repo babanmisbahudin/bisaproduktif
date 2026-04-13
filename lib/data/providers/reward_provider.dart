@@ -62,6 +62,7 @@ enum RedeemResult {
   blocked,            // user diblokir oleh admin
   alreadyRequested,   // duplicate pending redemption
   tooManyPending,     // terlalu banyak redemption pending
+  cooldownActive,     // harus tunggu 5 menit antar redeem
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────
@@ -201,8 +202,9 @@ class RewardProvider extends ChangeNotifier {
       if (lastRedeem != null) {
         final minutesSinceLastRedeem = DateTime.now().difference(lastRedeem).inMinutes;
         if (minutesSinceLastRedeem < _cooldownMinutes) {
-          debugPrint('[Anti-Fraud] Redeem cooldown active. Last redeem: $minutesSinceLastRedeem minutes ago');
-          return RedeemResult.success; // Silent fail
+          final sisaMenit = _cooldownMinutes - minutesSinceLastRedeem;
+          debugPrint('[Anti-Fraud] Redeem cooldown active. Sisa $sisaMenit menit');
+          return RedeemResult.cooldownActive;
         }
       }
     }
@@ -241,28 +243,24 @@ class RewardProvider extends ChangeNotifier {
     return RedeemResult.success;
   }
 
-  /// Admin approve redemption
-  Future<bool> approvePendingRedemption({
+  // ── Admin Actions ─────────────────────────────────────────────────────────
+
+  /// Admin: pending → diproses
+  Future<bool> markAsProcessing({
     required String transactionId,
     required String adminEmail,
-    required HabitProvider habitProvider,
   }) async {
     final tx = _box.get(transactionId);
     if (tx == null || tx.status != 'pending') return false;
 
-    // CATATAN: koin sudah dipotong saat user request (status pending)
-    // Jangan deduct lagi di sini — cukup update status saja
-
-    // Update status lokal
-    tx.status = 'approved';
+    tx.status = 'diproses';
     tx.approvedBy = adminEmail;
     tx.approvedAt = DateTime.now();
     await _box.put(transactionId, tx);
 
-    // Sync ke Firebase agar user tahu statusnya diupdate
     FirebaseService.updateRedemptionStatus(
       transactionId: transactionId,
-      status: 'approved',
+      status: 'diproses',
       adminEmail: adminEmail,
     );
 
@@ -271,29 +269,53 @@ class RewardProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Admin reject redemption + refund coins
-  Future<bool> rejectPendingRedemption({
+  /// Admin: diproses → dikirim (final, koin TIDAK dikembalikan)
+  Future<bool> markAsSent({
+    required String transactionId,
+    required String adminEmail,
+  }) async {
+    final tx = _box.get(transactionId);
+    if (tx == null || tx.status != 'diproses') return false;
+
+    tx.status = 'dikirim';
+    tx.approvedBy = adminEmail;
+    tx.approvedAt = DateTime.now();
+    await _box.put(transactionId, tx);
+
+    FirebaseService.updateRedemptionStatus(
+      transactionId: transactionId,
+      status: 'dikirim',
+      adminEmail: adminEmail,
+    );
+
+    _loadTransactions();
+    notifyListeners();
+    return true;
+  }
+
+  /// Admin: reject dari status 'pending' ATAU 'diproses' → ditolak (final, REFUND koin)
+  Future<bool> rejectRedemption({
     required String transactionId,
     required String adminEmail,
     required String reason,
     required HabitProvider habitProvider,
   }) async {
     final tx = _box.get(transactionId);
-    if (tx == null || tx.status != 'pending') return false;
+    if (tx == null) return false;
+    if (tx.status != 'pending' && tx.status != 'diproses') return false;
 
-    // REFUND: kembalikan koin ke user karena direject
+    // REFUND koin karena ditolak
     await habitProvider.addCoins(tx.coinsCost);
 
-    tx.status = 'rejected';
+    tx.status = 'ditolak';
     tx.approvedBy = adminEmail;
     tx.approvedAt = DateTime.now();
     tx.rejectionReason = reason;
     await _box.put(transactionId, tx);
 
-    // Sync ke Firebase agar user tahu statusnya diupdate
     FirebaseService.updateRedemptionStatus(
       transactionId: transactionId,
-      status: 'rejected',
+      status: 'ditolak',
       adminEmail: adminEmail,
       rejectionReason: reason,
     );
@@ -303,13 +325,40 @@ class RewardProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Get pending redemptions only
+  // Alias untuk backward compat dari AdminProvider lama
+  Future<bool> approvePendingRedemption({
+    required String transactionId,
+    required String adminEmail,
+    required HabitProvider habitProvider,
+  }) => markAsProcessing(transactionId: transactionId, adminEmail: adminEmail);
+
+  Future<bool> rejectPendingRedemption({
+    required String transactionId,
+    required String adminEmail,
+    required String reason,
+    required HabitProvider habitProvider,
+  }) => rejectRedemption(
+        transactionId: transactionId,
+        adminEmail: adminEmail,
+        reason: reason,
+        habitProvider: habitProvider,
+      );
+
+  /// Get pending redemptions (status 'pending')
   List<TransactionModel> get pendingRedemptions =>
       _transactions.where((t) => t.status == 'pending').toList();
 
-  /// Get all transactions (for history)
-  List<TransactionModel> get approvedTransactions =>
-      _transactions.where((t) => t.status == 'approved').toList();
+  /// Get redemptions yang sedang diproses
+  List<TransactionModel> get processingRedemptions =>
+      _transactions.where((t) => t.status == 'diproses').toList();
+
+  /// Get redemptions yang sudah dikirim
+  List<TransactionModel> get sentRedemptions =>
+      _transactions.where((t) => t.status == 'dikirim').toList();
+
+  /// Get redemptions yang ditolak
+  List<TransactionModel> get rejectedRedemptions =>
+      _transactions.where((t) => t.status == 'ditolak').toList();
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -317,7 +366,8 @@ class RewardProvider extends ChangeNotifier {
     final today = DateTime.now();
     return _transactions
         .where((t) =>
-            t.status == 'approved' && // Hanya hitung approved
+            // Hitung koin yang sudah pasti terpakai (sedang diproses atau sudah dikirim)
+            (t.status == 'diproses' || t.status == 'dikirim') &&
             t.timestamp.year == today.year &&
             t.timestamp.month == today.month &&
             t.timestamp.day == today.day)

@@ -337,8 +337,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.remove('is_onboarded');
 
-                    // Sign out
-                    await authProvider.signOut();
+                    // Sign out (pass adminProvider agar isAdmin direset)
+                    await authProvider.signOut(adminProvider: adminProvider);
 
                     // Navigate back to login screen untuk bisa ganti email
                     if (mounted) {

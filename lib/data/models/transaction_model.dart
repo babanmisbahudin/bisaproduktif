@@ -9,10 +9,12 @@ class TransactionModel {
   String rewardEmoji;
   int coinsCost;
   DateTime timestamp;
-  String status; // 'pending', 'approved', 'rejected'
+  // Status: 'pending' → 'diproses' → 'dikirim' (final)
+  //                   ↘ 'ditolak' (final, coins refunded)
+  String status;
   String category;
-  String? approvedBy; // Email admin yang approve
-  DateTime? approvedAt;
+  String? approvedBy; // Email admin yang menangani
+  DateTime? approvedAt; // Waktu update status terakhir
   String? rejectionReason;
 
   TransactionModel({
@@ -38,20 +40,37 @@ class TransactionModelAdapter extends TypeAdapter<TransactionModel> {
 
   @override
   TransactionModel read(BinaryReader reader) {
+    // Baca ke variabel lokal dulu agar setiap field hanya di-read SATU kali.
+    // Pattern: `reader.readString().isEmpty ? null : value` membaca DUA kali
+    // dan menggeser posisi reader — ini menyebabkan data korup.
+    final id           = reader.readString();
+    final userId       = reader.readString();
+    final userName     = reader.readString();
+    final rewardId     = reader.readString();
+    final rewardTitle  = reader.readString();
+    final rewardEmoji  = reader.readString();
+    final coinsCost    = reader.readInt();
+    final timestamp    = DateTime.parse(reader.readString());
+    final status       = reader.readString();
+    final category     = reader.readString();
+    final approvedByRaw      = reader.readString();
+    final approvedAtRaw      = reader.readString();
+    final rejectionReasonRaw = reader.readString();
+
     return TransactionModel(
-      id: reader.readString(),
-      userId: reader.readString(),
-      userName: reader.readString(),
-      rewardId: reader.readString(),
-      rewardTitle: reader.readString(),
-      rewardEmoji: reader.readString(),
-      coinsCost: reader.readInt(),
-      timestamp: DateTime.parse(reader.readString()),
-      status: reader.readString(),
-      category: reader.readString(),
-      approvedBy: reader.readString().isEmpty ? null : reader.readString(),
-      approvedAt: reader.readString().isEmpty ? null : DateTime.parse(reader.readString()),
-      rejectionReason: reader.readString().isEmpty ? null : reader.readString(),
+      id: id,
+      userId: userId,
+      userName: userName,
+      rewardId: rewardId,
+      rewardTitle: rewardTitle,
+      rewardEmoji: rewardEmoji,
+      coinsCost: coinsCost,
+      timestamp: timestamp,
+      status: status,
+      category: category,
+      approvedBy:      approvedByRaw.isEmpty      ? null : approvedByRaw,
+      approvedAt:      approvedAtRaw.isEmpty      ? null : DateTime.parse(approvedAtRaw),
+      rejectionReason: rejectionReasonRaw.isEmpty ? null : rejectionReasonRaw,
     );
   }
 
